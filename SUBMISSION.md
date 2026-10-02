@@ -7,7 +7,7 @@
 - **GitHub Username**: [student-github]
 - **Agent Name & Domain**: Inventory & Purchasing Sentinel Agent (Inbox Triage & Inventory Management)
 - **Private GitHub Repository URL**: https://github.com/YOUR_GITHUB_USERNAME/Agent_Arena_Submission
-- **Final Source Commit Hash**: [TO_BE_COMPLETED_AFTER_FINAL_COMMIT]
+- **Final Source Commit Hash**: df91413c3838dd16854bccf775fa2e52d7ac200a
 - **Working Public Agent Interface URL**: https://YOUR-APP.onrender.com/
 - **GET /health URL**: https://YOUR-APP.onrender.com/health
 - **POST /arena/run URL**: https://YOUR-APP.onrender.com/arena/run
