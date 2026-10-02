@@ -49,26 +49,6 @@
       "supplier": "TechGear Wholesale",
       "status": "DRAFT",
       "created_at": "2026-10-01"
-    },
-    {
-      "po_id": "PO-502",
-      "sku": "SKU-102",
-      "item_name": "Mechanical Keyboard RGB",
-      "quantity": 15,
-      "estimated_cost": 1349.85,
-      "supplier": "Default Supplier",
-      "status": "DRAFT",
-      "created_at": "2026-10-02"
-    },
-    {
-      "po_id": "PO-503",
-      "sku": "SKU-102",
-      "item_name": "Mechanical Keyboard RGB",
-      "quantity": 15,
-      "estimated_cost": 1349.85,
-      "supplier": "Default Supplier",
-      "status": "DRAFT",
-      "created_at": "2026-10-02"
     }
   ],
   "suppliers": [

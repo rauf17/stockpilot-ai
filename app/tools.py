@@ -111,6 +111,44 @@ def calculate_reorder_cost(sku: str, target_stock: int) -> dict:
     }
 
 
+# --- Tool Argument Schemas (Pydantic Schema Validation) ---
+from pydantic import BaseModel, Field, ValidationError
+
+class CheckInventoryArgs(BaseModel):
+    sku: str | None = Field(default=None, description="SKU identifier or item name search string")
+    low_stock_only: bool = Field(default=False, description="Filter for items at or below reorder threshold")
+
+class DraftPurchaseOrderArgs(BaseModel):
+    sku: str = Field(..., description="Target SKU identifier")
+    quantity: int = Field(..., gt=0, description="Quantity to order, must be greater than 0")
+    supplier: str | None = Field(default=None, description="Optional supplier name")
+
+class IssuePurchaseOrderArgs(BaseModel):
+    po_id: str = Field(..., description="Purchase Order ID (e.g. PO-501)")
+
+class CalculateReorderCostArgs(BaseModel):
+    sku: str = Field(..., description="Target SKU identifier")
+    target_stock: int = Field(..., gt=0, description="Target total stock quantity, must be greater than 0")
+
+TOOL_SCHEMAS: dict[str, type[BaseModel]] = {
+    "check_inventory": CheckInventoryArgs,
+    "draft_purchase_order": DraftPurchaseOrderArgs,
+    "issue_purchase_order": IssuePurchaseOrderArgs,
+    "calculate_reorder_cost": CalculateReorderCostArgs,
+}
+
+def validate_tool_arguments(tool_name: str, args: dict) -> tuple[dict | None, str | None]:
+    """Validate tool name and arguments against Pydantic schemas. Returns (validated_dict, error_msg)."""
+    if tool_name not in TOOL_SCHEMAS:
+        return None, f"Unknown tool '{tool_name}'"
+    schema = TOOL_SCHEMAS[tool_name]
+    try:
+        validated_model = schema.model_validate(args)
+        return validated_model.model_dump(), None
+    except ValidationError as val_err:
+        return None, f"Invalid tool arguments for '{tool_name}': {str(val_err)}"
+
+
 # Tool Registry
 TOOLS: dict[str, Any] = {
     "check_inventory": check_inventory,
@@ -132,6 +170,12 @@ def execute_tool_with_fault_injection(
     if tool_name not in TOOLS:
         return {"status": "error", "error": f"Unknown tool '{tool_name}'"}, "rejected"
 
+    # Schema validation for tool arguments
+    validated_kwargs, schema_err = validate_tool_arguments(tool_name, kwargs)
+    if schema_err:
+        return {"status": "error", "error": schema_err}, "contract_error"
+    kwargs_to_use = validated_kwargs if validated_kwargs is not None else kwargs
+
     # Check fault injection for 'first_matching_operation'
     fault_type = fault_config.type if hasattr(fault_config, 'type') else (fault_config.get('type') if isinstance(fault_config, dict) else 'none')
 
@@ -148,7 +192,7 @@ def execute_tool_with_fault_injection(
     # Execute normal tool
     try:
         fn = TOOLS[tool_name]
-        res = fn(**kwargs)
+        res = fn(**kwargs_to_use)
         if res.get("status") == "blocked":
             return res, "rejected"
         return res, "success"
