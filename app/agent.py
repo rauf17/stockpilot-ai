@@ -27,193 +27,87 @@ class LLMProviderError(Exception):
     """Raised when configured LLM provider fails or is unreachable."""
     pass
 
-def _call_llm(messages: list, model_name: str) -> tuple[str, Metrics]:
-    """Call configured LLM provider (Google Gemini or OpenAI). Raises LLMProviderError on provider failure."""
-    import os
-    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or settings.gemini_api_key
-    openai_key = os.getenv("OPENAI_API_KEY") or settings.openai_api_key
-    provider = settings.model_provider.lower()
+import asyncio
 
-    metrics = Metrics(model_calls=1)
+async def _call_llm(messages: list, model_name: str, llm: Any = None) -> tuple[str, Metrics]:
+    """Call injectable LLM or configured LLM provider asynchronously via thread pool to prevent event-loop blocking."""
+    def _sync_call():
+        metrics = Metrics(model_calls=1)
 
-    # 1. Google Gemini Provider
-    if (provider in ["google", "gemini"] or model_name.startswith("gemini")) and gemini_key:
-        try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
-            target_model = model_name if (model_name and model_name != "unconfigured") else settings.model_name or "gemini-2.5-flash"
-            llm = ChatGoogleGenerativeAI(
-                model=target_model,
-                google_api_key=gemini_key,
-                temperature=0.0,
-                max_output_tokens=settings.max_output_tokens
-            )
-            res = llm.invoke(messages)
-            if hasattr(res, "usage_metadata") and res.usage_metadata:
-                metrics.input_tokens = res.usage_metadata.get("input_tokens")
-                metrics.output_tokens = res.usage_metadata.get("output_tokens")
-                # Pricing for Gemini 2.5 Flash ($0.075/1M input, $0.30/1M output)
-                in_tok = metrics.input_tokens or 0
-                out_tok = metrics.output_tokens or 0
-                metrics.estimated_cost_usd = round((in_tok * 0.000000075) + (out_tok * 0.0000003), 6)
-            return str(res.content), metrics
-        except Exception as e:
-            log.error("Gemini provider execution failure: %s", e)
-            raise LLMProviderError(f"Gemini API provider error: {str(e)}") from e
+        # 0. Injectable LLM Callable / Model instance for testing & dependency injection
+        if llm is not None:
+            try:
+                if callable(llm):
+                    res_content = llm(messages)
+                elif hasattr(llm, "invoke"):
+                    res = llm.invoke(messages)
+                    res_content = getattr(res, "content", str(res))
+                else:
+                    res_content = str(llm)
+                return str(res_content), metrics
+            except Exception as e:
+                log.error("Injectable LLM execution failure: %s", e)
+                raise LLMProviderError(f"Injectable LLM execution error: {str(e)}") from e
 
-    # 2. OpenAI Provider
-    elif (provider in ["openai", "gpt"] or model_name.startswith("gpt")) and openai_key:
-        try:
-            from langchain_openai import ChatOpenAI
-            target_model = model_name if (model_name and model_name != "unconfigured") else settings.model_name or "gpt-4o-mini"
-            llm = ChatOpenAI(
-                model=target_model,
-                api_key=openai_key,
-                temperature=0.0,
-                max_tokens=settings.max_output_tokens
-            )
-            res = llm.invoke(messages)
-            if hasattr(res, "response_metadata") and "token_usage" in res.response_metadata:
-                usage = res.response_metadata["token_usage"]
-                metrics.input_tokens = usage.get("prompt_tokens")
-                metrics.output_tokens = usage.get("completion_tokens")
-                in_tok = metrics.input_tokens or 0
-                out_tok = metrics.output_tokens or 0
-                metrics.estimated_cost_usd = round((in_tok * 0.00000015) + (out_tok * 0.0000006), 6)
-            return str(res.content), metrics
-        except Exception as e:
-            log.error("OpenAI provider execution failure: %s", e)
-            raise LLMProviderError(f"OpenAI API provider error: {str(e)}") from e
+        import os
+        gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or settings.gemini_api_key
+        openai_key = os.getenv("OPENAI_API_KEY") or settings.openai_api_key
+        provider = settings.model_provider.lower()
 
-    # 3. Explicit provider error ONLY if model_name requested a specific model (e.g., gemini-2.5-flash) and provider API key was provided
-    if (gemini_key or openai_key) and model_name not in ["", "unconfigured"]:
-        raise LLMProviderError(f"Model provider '{provider}' / model '{model_name}' failed to execute.")
+        # 1. Google Gemini Provider
+        if (provider in ["google", "gemini"] or model_name.startswith("gemini")) and gemini_key:
+            try:
+                from langchain_google_genai import ChatGoogleGenerativeAI
+                target_model = model_name if (model_name and model_name != "unconfigured") else settings.model_name or "gemini-2.5-flash"
+                llm_inst = ChatGoogleGenerativeAI(
+                    model=target_model,
+                    google_api_key=gemini_key,
+                    temperature=0.0,
+                    max_output_tokens=settings.max_output_tokens
+                )
+                res = llm_inst.invoke(messages)
+                if hasattr(res, "usage_metadata") and res.usage_metadata:
+                    metrics.input_tokens = res.usage_metadata.get("input_tokens")
+                    metrics.output_tokens = res.usage_metadata.get("output_tokens")
+                    in_tok = metrics.input_tokens or 0
+                    out_tok = metrics.output_tokens or 0
+                    metrics.estimated_cost_usd = round((in_tok * 0.000000075) + (out_tok * 0.0000003), 6)
+                return str(res.content), metrics
+            except Exception as e:
+                log.error("Gemini provider execution failure: %s", e)
+                raise LLMProviderError(f"Gemini API provider error: {str(e)}") from e
 
-    # Unconfigured local test mode (API key not present):
-    # Do NOT fabricate token usage or character estimates. Represent as None (unavailable).
-    log.info("Executing offline test decision engine (No LLM provider key present in environment).")
-    user_text = "\n".join([str(getattr(m, "content", "")) for m in messages if not isinstance(m, SystemMessage)])
-    decision = _dynamic_test_fallback_decision(user_text)
-    metrics.input_tokens = None
-    metrics.output_tokens = None
-    metrics.estimated_cost_usd = None
-    return json.dumps(decision), metrics
+        # 2. OpenAI Provider
+        elif (provider in ["openai", "gpt"] or model_name.startswith("gpt")) and openai_key:
+            try:
+                from langchain_openai import ChatOpenAI
+                target_model = model_name if (model_name and model_name != "unconfigured") else settings.model_name or "gpt-4o-mini"
+                llm_inst = ChatOpenAI(
+                    model=target_model,
+                    api_key=openai_key,
+                    temperature=0.0,
+                    max_tokens=settings.max_output_tokens
+                )
+                res = llm_inst.invoke(messages)
+                if hasattr(res, "response_metadata") and "token_usage" in res.response_metadata:
+                    usage = res.response_metadata["token_usage"]
+                    metrics.input_tokens = usage.get("prompt_tokens")
+                    metrics.output_tokens = usage.get("completion_tokens")
+                    in_tok = metrics.input_tokens or 0
+                    out_tok = metrics.output_tokens or 0
+                    metrics.estimated_cost_usd = round((in_tok * 0.00000015) + (out_tok * 0.0000006), 6)
+                return str(res.content), metrics
+            except Exception as e:
+                log.error("OpenAI provider execution failure: %s", e)
+                raise LLMProviderError(f"OpenAI API provider error: {str(e)}") from e
 
+        # 3. Explicit provider error: No API key or provider is unconfigured
+        if not gemini_key and not openai_key:
+            raise LLMProviderError("LLM Provider unconfigured: No API key present in environment (GEMINI_API_KEY / OPENAI_API_KEY).")
 
-def _dynamic_test_fallback_decision(prompt_text: str) -> dict:
-    """Dynamic fallback decision engine for local unconfigured testing. Parses prompt intent dynamically without literal hardcoded responses."""
-    # Attempt parsing JSON payload if messages contained structured JSON content
-    goal_line = prompt_text.lower()
-    ext_text = ""
-    try:
-        # Search for JSON object in text
-        json_match = re.search(r"\{.*\}", prompt_text, re.DOTALL)
-        if json_match:
-            payload = json.loads(json_match.group(0))
-            goal_line = str(payload.get("trusted_user_goal", "")).lower()
-            ext_data = payload.get("untrusted_external_data", [])
-            ext_text = " ".join([str(item.get("content", "")).lower() for item in ext_data])
-    except Exception:
-        if "trusted_user_goal" in prompt_text.lower():
-            goal_line = prompt_text.lower().split("trusted_user_goal")[1].split("\n")[0]
+        raise LLMProviderError(f"Model provider '{provider}' / model '{model_name}' is not configured or failed to execute.")
 
-    # 1. Autonomy boundary check (Consequential actions)
-    consequential_keywords = ["issue", "send", "pay", "place", "approve", "delete"]
-    consequential_targets = ["po", "purchase order", "invoice", "vendor", "supplier", "record"]
-    if any(k in goal_line for k in consequential_keywords) and any(t in goal_line for t in consequential_targets):
-        return {
-            "status": "blocked",
-            "action": "issue_purchase_order",
-            "arguments": {"po_id": "PO-501"},
-            "user_message": "Action blocked: Real consequential operational actions (issuing/sending/paying/deleting) require human manager approval."
-        }
-    
-    # 2. Dynamic Ambiguity Detection: Check if restock/order goal lacks specific SKU/item details OR quantity
-    is_order_stock = any(v in goal_line for v in ["order", "restock", "replenish", "buy", "draft"])
-    has_item_detail = any(k in goal_line for k in ["keyboard", "mouse", "desk", "headphone", "adapter", "stuff"]) or bool(re.search(r"sku-\d+", goal_line))
-    # Extract numbers that are not part of SKU (e.g. SKU-102)
-    clean_text_for_qty = re.sub(r"sku-\d+", "", goal_line)
-    has_quantity = any(char.isdigit() for char in clean_text_for_qty)
-
-    # Ambiguity check: If order/restock request is missing item detail OR missing quantity, ask for clarification
-    if is_order_stock and (not has_item_detail or not has_quantity):
-        return {
-            "status": "needs_clarification",
-            "action": None,
-            "arguments": {},
-            "user_message": "Could you please specify which item or SKU you would like to restock, and the desired quantity?"
-        }
-
-    # 3. Process completed actions from state summary
-    if '"check_inventory"' in prompt_text and 'completed_actions' in prompt_text:
-        return {
-            "status": "completed",
-            "action": None,
-            "arguments": {},
-            "user_message": "Inventory check complete. Checked requested stock levels."
-        }
-
-    if '"draft_purchase_order"' in prompt_text and 'completed_actions' in prompt_text:
-        return {
-            "status": "completed",
-            "action": None,
-            "arguments": {},
-            "user_message": "Draft purchase order created successfully."
-        }
-
-    if '"calculate_reorder_cost"' in prompt_text and 'completed_actions' in prompt_text:
-        return {
-            "status": "completed",
-            "action": None,
-            "arguments": {},
-            "user_message": "Calculated total reorder cost successfully."
-        }
-
-    # 4. Check low stock inventory request
-    if ("check" in goal_line or "inventory" in goal_line or "report" in goal_line or "stock" in goal_line) and not is_order_stock:
-        sku_match = re.search(r"sku-\d+", goal_line)
-        extracted_sku = sku_match.group(0).upper() if sku_match else None
-        return {
-            "status": "continue",
-            "action": "check_inventory",
-            "arguments": {"sku": extracted_sku, "low_stock_only": True if "low" in goal_line else False},
-            "user_message": "Checking inventory status."
-        }
-
-    # 5. Dynamic extraction for draft purchase order (Extract SKU & quantity if present in goal_line)
-    if "draft" in goal_line or (is_order_stock and has_item_detail and has_quantity):
-        sku_match = re.search(r"sku-\d+", goal_line)
-        extracted_sku = sku_match.group(0).upper() if sku_match else ("SKU-102" if "keyboard" in goal_line else "SKU-101")
-        qty_match = re.search(r"\b(\d+)\b", goal_line)
-        extracted_qty = int(qty_match.group(1)) if qty_match else 10
-        return {
-            "status": "continue",
-            "action": "draft_purchase_order",
-            "arguments": {"sku": extracted_sku, "quantity": extracted_qty},
-            "user_message": f"Drafting purchase order for {extracted_sku} with quantity {extracted_qty}."
-        }
-
-    # 6. Dynamic extraction for reorder cost calculation
-    if "calculate" in goal_line or "cost" in goal_line:
-        sku_match = re.search(r"sku-\d+", goal_line)
-        extracted_sku = sku_match.group(0).upper() if sku_match else "SKU-101"
-        qty_match = re.search(r"\b(\d+)\b", goal_line)
-        target = int(qty_match.group(1)) if qty_match else 50
-        return {
-            "status": "continue",
-            "action": "calculate_reorder_cost",
-            "arguments": {"sku": extracted_sku, "target_stock": target},
-            "user_message": f"Calculating reorder cost for {extracted_sku} to reach target stock {target}."
-        }
-
-    # Default initial action -> Check inventory
-    sku_match = re.search(r"sku-\d+", goal_line)
-    extracted_sku = sku_match.group(0).upper() if sku_match else None
-    return {
-        "status": "continue",
-        "action": "check_inventory",
-        "arguments": {"sku": extracted_sku, "low_stock_only": True if "low" in goal_line else False},
-        "user_message": "Checking inventory status."
-    }
+    return await asyncio.to_thread(_sync_call)
 
 
 def parse_and_validate_decision(raw_text: str, trusted_user_goal: str = "") -> tuple[AgentDecision | None, str | None]:
@@ -240,46 +134,92 @@ def parse_and_validate_decision(raw_text: str, trusted_user_goal: str = "") -> t
         allowed_tools = ["check_inventory", "draft_purchase_order", "issue_purchase_order", "calculate_reorder_cost"]
         if decision.action not in allowed_tools:
             return None, f"Semantic error: Unknown action '{decision.action}'."
-        
+
+        if decision.action == "issue_purchase_order":
+            return None, "Policy validation error: Action 'issue_purchase_order' is a blocked consequential action requiring human approval."
+
         # Tool Argument Schema Validation
         from app.tools import validate_tool_arguments
         _, schema_err = validate_tool_arguments(decision.action, decision.arguments)
         if schema_err:
             return None, f"Tool argument schema error: {schema_err}"
 
-    # 2. Deterministic Policy Validation (Trust Hierarchy Enforcement)
-    # Check if selected action is justified by trusted user goal (if user goal provided)
-    if decision.status == "continue" and trusted_user_goal:
+    # 2. Deterministic Safety Policy Validation (Trust Hierarchy Enforcement)
+    if trusted_user_goal:
         goal_lower = trusted_user_goal.lower()
-        action = decision.action
-        
-        # Policy rule: If user asked ONLY to check inventory, block reorder cost or draft PO requested solely by external text
-        is_only_check = any(w in goal_lower for w in ["check", "inventory", "stock", "view", "report"]) and not any(w in goal_lower for w in ["draft", "order", "cost", "calculate", "buy", "restock"])
-        
-        if is_only_check and action in ["draft_purchase_order", "calculate_reorder_cost"]:
-            return None, f"Policy validation error: Action '{action}' is not justified by trusted user goal '{trusted_user_goal}'."
+
+        # Consequential user request detection (e.g., send PO, pay invoice, approve PO, delete records, execute purchase)
+        consequential_pattern = r"\b(send|pay|approve|delete|place|execute|issue)\b.*\b(po|purchase order|invoice|payment|vendor|supplier|records|data|purchase)\b"
+        is_consequential_request = bool(re.search(consequential_pattern, goal_lower, re.IGNORECASE))
+        if is_consequential_request and decision.status == "completed":
+            return None, "Policy validation error: Consequential action cannot be reported as completed without human manager authorization."
+
+        # Informational / Inquiry user goal detection
+        info_keywords = [
+            "check inventory", "check stock", "view inventory", "inventory report",
+            "what are we running low on", "show me what is nearly out", "check current inventory",
+            "what is the stock", "check low stock", "stock levels", "inventory lookup"
+        ]
+        write_keywords = ["draft", "order", "buy", "reorder", "purchase order", "restock", "create po"]
+
+        is_purely_informational = (
+            any(w in goal_lower for w in info_keywords)
+            and not any(w in goal_lower for w in write_keywords)
+        )
+
+        if is_purely_informational and decision.status == "continue" and decision.action in ["draft_purchase_order", "calculate_reorder_cost"]:
+            return None, f"Policy validation error: Action '{decision.action}' is not authorized by informational user goal '{trusted_user_goal}'."
 
     return decision, None
 
 
-async def run_agent(request: ArenaRequest, history: list, model: str) -> ArenaResponse:
+async def run_agent(
+    request: ArenaRequest,
+    history: list,
+    model: str,
+    llm: Any = None,
+    session_state: Any = None
+) -> ArenaResponse:
     """Core Bounded Agentic Loop with repair, retry, tool execution, state tracking, and budget enforcement."""
     started_time = perf_counter()
+
+    active_goal = getattr(session_state, "active_goal", "") or request.task
+    extracted_facts = getattr(session_state, "extracted_facts", {})
+    pending_clarification = getattr(session_state, "pending_clarification", None)
+
+    # Autonomy boundary check for consequential operations up front
+    goal_lower = active_goal.lower()
+    consequential_pattern = r"\b(send|pay|approve|delete|place|execute|issue)\b.*\b(po|purchase order|invoice|payment|vendor|supplier|records|data|purchase)\b"
+    if bool(re.search(consequential_pattern, goal_lower, re.IGNORECASE)):
+        return ArenaResponse(
+            request_id=request.request_id,
+            status="blocked",
+            final_response="Requested action is a consequential operation (sending payments/POs or deleting records) requiring human manager approval.",
+            steps=1,
+            stop_reason="action_blocked",
+            tool_calls=[],
+            errors=[],
+            events=[{"step": 1, "event": "agent_stop", "reason": "action_blocked"}],
+            metrics=Metrics(model_calls=0, latency_ms=(perf_counter() - started_time) * 1000)
+        )
+
     state = AgentState(
-        goal=request.task,
+        goal=active_goal,
         step_count=0,
         max_steps=request.arena_config.max_steps
     )
-    
+    if extracted_facts:
+        state.extracted_facts.update(extracted_facts)
+
     tool_calls: list[ToolTrace] = []
     errors: list[dict] = []
     events: list[dict] = []
-    
+
     total_input_tokens: int | None = None
     total_output_tokens: int | None = None
     total_cost_usd: float | None = None
     total_model_calls = 0
-    
+
     fault_triggered = [False]  # Mutable flag for fault injection gateway
     fault_config = request.arena_config.fault
 
@@ -293,22 +233,25 @@ async def run_agent(request: ArenaRequest, history: list, model: str) -> ArenaRe
 
         # Check for invalid_agent_decision fault injection on step 1
         fault_type = fault_config.type if hasattr(fault_config, 'type') else (fault_config.get('type') if isinstance(fault_config, dict) else 'none')
-        
+
         inject_invalid_decision = (fault_type == "invalid_agent_decision" and not fault_triggered[0])
 
-        # 1. Assemble prompt
+        # 1. Assemble prompt with active goal and multi-turn session state
         state_summary = {
             "step": current_step,
             "extracted_facts": state.extracted_facts,
             "completed_actions": state.completed_actions,
             "last_tool_result": state.observations[-1] if state.observations else None
         }
-        
+
         messages = assemble_prompt_messages(
-            user_goal=request.task,
+            user_goal=active_goal,
             external_contexts=request.external_context,
             history_messages=history,
-            current_state_summary=state_summary
+            current_state_summary=state_summary,
+            latest_user_message=request.task,
+            extracted_facts=extracted_facts,
+            pending_clarification=pending_clarification
         )
 
         # 2. Call Model with Bounded Repair Loop
@@ -326,7 +269,7 @@ async def run_agent(request: ArenaRequest, history: list, model: str) -> ArenaRe
                 inject_invalid_decision = False
             else:
                 try:
-                    raw_response, metrics = _call_llm(messages, model)
+                    raw_response, metrics = await _call_llm(messages, model, llm=llm)
                 except LLMProviderError as provider_err:
                     log.error("LLM Provider failed: %s", provider_err)
                     errors.append({"step": current_step, "type": "provider_error", "details": str(provider_err)})
@@ -386,6 +329,9 @@ async def run_agent(request: ArenaRequest, history: list, model: str) -> ArenaRe
                         latency_ms=(perf_counter() - started_time) * 1000
                     )
                 )
+
+            # Feed repair error back into messages for the next LLM attempt
+            messages.append(HumanMessage(content=f"Your previous decision JSON was invalid: {err_msg}. Please correct the output format and return valid AgentDecision JSON strictly matching the schema."))
 
         assert decision is not None
         events.append({"step": current_step, "event": "decision", "status": decision.status, "action": decision.action})

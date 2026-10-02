@@ -47,7 +47,7 @@ class ToolTrace(Contract):
 
 class Metrics(Contract):
     latency_ms: float = Field(default=0, ge=0)
-    model_calls: int = Field(default=0, ge=0, le=6)
+    model_calls: int = Field(default=0, ge=0, le=30)
     input_tokens: int | None = Field(default=None, ge=0)
     output_tokens: int | None = Field(default=None, ge=0)
     estimated_cost_usd: float | None = Field(default=None, ge=0)

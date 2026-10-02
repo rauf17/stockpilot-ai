@@ -112,23 +112,82 @@ def calculate_reorder_cost(sku: str, target_stock: int) -> dict:
 
 
 # --- Tool Argument Schemas (Pydantic Schema Validation) ---
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 class CheckInventoryArgs(BaseModel):
-    sku: str | None = Field(default=None, description="SKU identifier or item name search string")
+    model_config = ConfigDict(extra="forbid")
+    sku: str | None = Field(default=None, max_length=50, description="SKU identifier or item name search string")
     low_stock_only: bool = Field(default=False, description="Filter for items at or below reorder threshold")
 
+    @field_validator('sku')
+    @classmethod
+    def validate_sku(cls, val):
+        if val is not None and not val.strip():
+            raise ValueError("SKU must not be blank")
+        return val
+
 class DraftPurchaseOrderArgs(BaseModel):
-    sku: str = Field(..., description="Target SKU identifier")
-    quantity: int = Field(..., gt=0, description="Quantity to order, must be greater than 0")
-    supplier: str | None = Field(default=None, description="Optional supplier name")
+    model_config = ConfigDict(extra="forbid")
+    sku: str = Field(..., min_length=1, max_length=50, description="Target SKU identifier")
+    quantity: int = Field(..., gt=0, le=10000, description="Quantity to order, must be between 1 and 10000")
+    supplier: str | None = Field(default=None, max_length=100, description="Optional supplier name")
+
+    @field_validator('sku')
+    @classmethod
+    def validate_sku(cls, val):
+        if not val.strip():
+            raise ValueError("SKU must not be blank")
+        return val
+
+    @field_validator('quantity', mode='before')
+    @classmethod
+    def validate_quantity_type(cls, val):
+        if isinstance(val, bool):
+            raise ValueError("Quantity cannot be boolean")
+        if isinstance(val, float) and not val.is_integer():
+            raise ValueError("Quantity must be an integer, not float")
+        if isinstance(val, str):
+            if not val.strip().isdigit():
+                raise ValueError("Quantity must be numeric integer")
+            val = int(val)
+        if val <= 0:
+            raise ValueError("Quantity must be greater than 0")
+        if val > 10000:
+            raise ValueError("Quantity exceeds max allowed threshold of 10000")
+        return val
 
 class IssuePurchaseOrderArgs(BaseModel):
-    po_id: str = Field(..., description="Purchase Order ID (e.g. PO-501)")
+    model_config = ConfigDict(extra="forbid")
+    po_id: str = Field(..., min_length=1, max_length=50, description="Purchase Order ID (e.g. PO-501)")
 
 class CalculateReorderCostArgs(BaseModel):
-    sku: str = Field(..., description="Target SKU identifier")
-    target_stock: int = Field(..., gt=0, description="Target total stock quantity, must be greater than 0")
+    model_config = ConfigDict(extra="forbid")
+    sku: str = Field(..., min_length=1, max_length=50, description="Target SKU identifier")
+    target_stock: int = Field(..., gt=0, le=100000, description="Target total stock quantity")
+
+    @field_validator('sku')
+    @classmethod
+    def validate_sku(cls, val):
+        if not val.strip():
+            raise ValueError("SKU must not be blank")
+        return val
+
+    @field_validator('target_stock', mode='before')
+    @classmethod
+    def validate_target_stock_type(cls, val):
+        if isinstance(val, bool):
+            raise ValueError("target_stock cannot be boolean")
+        if isinstance(val, float) and not val.is_integer():
+            raise ValueError("target_stock must be integer")
+        if isinstance(val, str):
+            if not val.strip().isdigit():
+                raise ValueError("target_stock must be numeric integer")
+            val = int(val)
+        if val <= 0:
+            raise ValueError("target_stock must be greater than 0")
+        if val > 100000:
+            raise ValueError("target_stock exceeds max allowed threshold of 100000")
+        return val
 
 TOOL_SCHEMAS: dict[str, type[BaseModel]] = {
     "check_inventory": CheckInventoryArgs,

@@ -1,24 +1,25 @@
-# Submission Summary — Agent Arena Assignment 1
+# Student Submission Details — Agent Arena Assignment 1
 
-- Full name: Student Name (Replace with your Name)
-- Roll number: i221234 (Replace with your Roll Number)
-- Class / section: Agentic AI - Fall 2026
-- University email: student@nu.edu.pk (Replace with your Email)
-- GitHub username: student-github (Replace with your Username)
-- Agent name and domain: Inventory Sentinel Agent (Inbox Triage & Inventory Management)
-- Private GitHub repository URL: https://github.com/YOUR_GITHUB_USERNAME/Agent_Arena_Submission
-- Final source commit hash: e8f5995143c7b342f8f2c4d3fa28318d7a2ff9eb
-- Working public agent interface URL: https://YOUR-APP.onrender.com/
-- GET /health URL: https://YOUR-APP.onrender.com/health
-- POST /arena/run URL: https://YOUR-APP.onrender.com/arena/run
-- GET /arena/manifest URL: https://YOUR-APP.onrender.com/arena/manifest
-- API documentation URL: https://YOUR-APP.onrender.com/docs
-- Hosting provider: Render (Web Service)
-- Default model and provider: Gemini 2.5 Flash / Google GenAI (with Deterministic Fallback Engine)
-- Other available models: gemini-1.5-pro, gpt-4o-mini, unconfigured
-- Example input and expected behavior:
+- **Full Name**: [Student Name]
+- **Roll Number**: [Student Roll Number]
+- **Class / Section**: Agentic AI - Fall 2026
+- **University Email**: student@nu.edu.pk
+- **GitHub Username**: [student-github]
+- **Agent Name & Domain**: Inventory & Purchasing Sentinel Agent (Inbox Triage & Inventory Management)
+- **Private GitHub Repository URL**: https://github.com/YOUR_GITHUB_USERNAME/Agent_Arena_Submission
+- **Final Source Commit Hash**: [TO_BE_COMPLETED_AFTER_FINAL_COMMIT]
+- **Working Public Agent Interface URL**: https://YOUR-APP.onrender.com/
+- **GET /health URL**: https://YOUR-APP.onrender.com/health
+- **POST /arena/run URL**: https://YOUR-APP.onrender.com/arena/run
+- **GET /arena/manifest URL**: https://YOUR-APP.onrender.com/arena/manifest
+- **API Documentation URL**: https://YOUR-APP.onrender.com/docs
+- **Hosting Provider**: Render (Web Service)
+- **Default Model & Provider**: Gemini 2.5 Flash / Google GenAI (with explicit error handling if unconfigured)
+- **Other Supported Models**: gpt-4o-mini (OpenAI)
+- **Example Input & Expected Result**:
   - Input: `{"task": "Check inventory and report low stock items", "arena_config": {"fault": "none"}}`
-  - Expected Result: Status `completed`, stop_reason `goal_completed`, tool_calls list containing `check_inventory`.
-- Cold-start / restart limitations: In-memory session history resets on server restart or worker restart.
-- Instructor repository invitation status: Pending / Ready to invite
-- Public test result file: `evaluation/public_cases.json` (8/8 cases passed)
+  - Expected Result: Status `completed`, stop_reason `goal_completed`, tool_calls containing `check_inventory`.
+- **Cold-Start / Restart Limitations**: In-memory `SessionState` resets on server restart or worker restart.
+- **Instructor Repository Invitation Status**: Ready to invite
+- **Public Benchmark Cases File**: `evaluation/public_cases.json` (8/8 cases passed)
+- **Model Experiment File**: `evaluation/model_experiment_cases.json` & `evaluation/run_model_experiment.py`

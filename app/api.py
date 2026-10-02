@@ -41,8 +41,14 @@ async def chat(payload: ChatRequest, request: Request):
     busy.add(payload.session_id)
     memory = request.app.state.memory
     try:
-        result = await execute(payload, memory.get(payload.session_id), payload.model)
-        memory.add(payload.session_id, payload.task, result.final_response)
+        session_state = memory.process_turn(payload.session_id, payload.task)
+        result = await execute(
+            payload,
+            history=memory.get(payload.session_id),
+            model=payload.model,
+            session_state=session_state
+        )
+        memory.update_after_run(payload.session_id, payload.task, result.final_response, result.status)
         return result
     finally:
         busy.discard(payload.session_id)
