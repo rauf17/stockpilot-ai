@@ -7,7 +7,7 @@
 - GitHub username: student-github (Replace with your Username)
 - Agent name and domain: Inventory Sentinel Agent (Inbox Triage & Inventory Management)
 - Private GitHub repository URL: https://github.com/YOUR_GITHUB_USERNAME/Agent_Arena_Submission
-- Final source commit hash: local-development-build-v1.0
+- Final source commit hash: be361b16003575f32a293660723e1c0412ce73bd
 - Working public agent interface URL: https://YOUR-APP.onrender.com/
 - GET /health URL: https://YOUR-APP.onrender.com/health
 - POST /arena/run URL: https://YOUR-APP.onrender.com/arena/run
