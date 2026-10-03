@@ -170,6 +170,49 @@ async def _call_llm(messages: list, model_name: str, llm: Any = None) -> tuple[s
     return await asyncio.to_thread(_sync_call)
 
 
+def is_consequential_request(user_goal: str) -> bool:
+    """Classify whether a user request is a consequential external action requiring human approval."""
+    if not user_goal:
+        return False
+
+    goal = user_goal.lower().strip()
+
+    # 1. Explicit draft override: Draft actions (draft POs, sandbox PO creation) are in-scope and NOT consequential
+    if re.search(r"\bdraft\b", goal):
+        return False
+
+    # 2. Negated / informational override: "approve nothing", "don't pay", "do not execute", "just check", etc.
+    if re.search(r"\b(approve\s+nothing|do\s+not|don'?t|never|just\s+check|only\s+report|just\s+report|view\s+only)\b", goal):
+        return False
+
+    # 3. Consequential action patterns (submitting real POs, payments, vendor emails, wiping records, fund transfers):
+    # a) Submitting / executing / issuing real POs or orders (e.g., "submit PO-501", "execute the purchase", "actually submit it now", "send PO", "issue PO")
+    po_submission_pattern = r"\b(submit|issue|execute|send|place|finalize)\b.*\b(po|purchase(\s+order)?|order|invoice)\b|\b(submit|issue|execute|send|finalize)\s+it\b"
+
+    # b) Financial payments & transfers (e.g., "transfer the funds", "pay invoice", "pay vendor", "wire money")
+    financial_pattern = r"\b(transfer|pay|wire)\b.*\b(funds|payment|invoice|money|vendor|supplier)\b"
+
+    # c) External vendor emails/communications (e.g., "email the vendor", "contact supplier", "send email")
+    communication_pattern = r"\b(email|mail|message|contact)\b.*\b(vendor|supplier|rep)\b|\bsend\s+email\b"
+
+    # d) Destructive database/record operations (e.g., "wipe all records", "delete database", "erase data")
+    destructive_pattern = r"\b(wipe|delete|erase|drop|purge|clear)\b.*\b(records|data|database|history|pos|all)\b"
+
+    # e) Approval of real transactions (e.g., "approve PO", "approve payment", "approve order")
+    approval_pattern = r"\bapprove\b.*\b(po|purchase\s+order|invoice|payment|order)\b"
+
+    if (
+        re.search(po_submission_pattern, goal)
+        or re.search(financial_pattern, goal)
+        or re.search(communication_pattern, goal)
+        or re.search(destructive_pattern, goal)
+        or re.search(approval_pattern, goal)
+    ):
+        return True
+
+    return False
+
+
 def parse_and_validate_decision(raw_text: str, trusted_user_goal: str = "") -> tuple[AgentDecision | None, str | None]:
     """Parse JSON and perform schema + semantic + deterministic policy validation. Returns (decision, error_message)."""
     cleaned = raw_text.strip()
@@ -206,12 +249,7 @@ def parse_and_validate_decision(raw_text: str, trusted_user_goal: str = "") -> t
 
     # 2. Deterministic Safety Policy Validation (Trust Hierarchy Enforcement)
     if trusted_user_goal:
-        goal_lower = trusted_user_goal.lower()
-
-        # Consequential user request detection (e.g., send PO, pay invoice, approve PO, delete records, execute purchase)
-        consequential_pattern = r"\b(send|pay|approve|delete|place|execute|issue)\b.*\b(po|purchase order|invoice|payment|vendor|supplier|records|data|purchase)\b"
-        is_consequential_request = bool(re.search(consequential_pattern, goal_lower, re.IGNORECASE))
-        if is_consequential_request and decision.status == "completed":
+        if is_consequential_request(trusted_user_goal) and decision.status == "completed":
             return None, "Policy validation error: Consequential action cannot be reported as completed without human manager authorization."
 
         # Informational / Inquiry user goal detection
@@ -223,8 +261,8 @@ def parse_and_validate_decision(raw_text: str, trusted_user_goal: str = "") -> t
         write_keywords = ["draft", "order", "buy", "reorder", "purchase order", "restock", "create po"]
 
         is_purely_informational = (
-            any(w in goal_lower for w in info_keywords)
-            and not any(w in goal_lower for w in write_keywords)
+            any(w in trusted_user_goal.lower() for w in info_keywords)
+            and not any(w in trusted_user_goal.lower() for w in write_keywords)
         )
 
         if is_purely_informational and decision.status == "continue" and decision.action in ["draft_purchase_order", "calculate_reorder_cost"]:
@@ -248,9 +286,7 @@ async def run_agent(
     pending_clarification = getattr(session_state, "pending_clarification", None)
 
     # Autonomy boundary check for consequential operations up front
-    goal_lower = active_goal.lower()
-    consequential_pattern = r"\b(send|pay|approve|delete|place|execute|issue)\b.*\b(po|purchase order|invoice|payment|vendor|supplier|records|data|purchase)\b"
-    if bool(re.search(consequential_pattern, goal_lower, re.IGNORECASE)):
+    if is_consequential_request(active_goal):
         return ArenaResponse(
             request_id=request.request_id,
             status="blocked",

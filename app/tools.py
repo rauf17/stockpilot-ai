@@ -8,23 +8,34 @@ from app.config import ROOT
 
 log = logging.getLogger("tools")
 
+import os
+import threading
+
+# Threading lock for synchronizing read-modify-write critical sections
+_DATA_LOCK = threading.Lock()
+
 # Sandbox data file path
 DATA_PATH = ROOT / "data" / "sample_data.json"
 
 def _load_data() -> dict:
     if not DATA_PATH.exists():
         return {"inventory": [], "purchase_orders": [], "suppliers": []}
-    return json.loads(DATA_PATH.read_text())
+    with open(DATA_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 def _save_data(data: dict):
-    DATA_PATH.write_text(json.dumps(data, indent=2))
+    temp_path = DATA_PATH.with_suffix(".json.tmp")
+    with open(temp_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+    os.replace(temp_path, DATA_PATH)
 
 
 # --- Action Implementations ---
 
 def check_inventory(sku: str | None = None, low_stock_only: bool = False) -> dict:
     """Tool 1: Read-only check of inventory status."""
-    data = _load_data()
+    with _DATA_LOCK:
+        data = _load_data()
     items = data.get("inventory", [])
     
     if sku:
@@ -46,31 +57,32 @@ def draft_purchase_order(sku: str, quantity: int, supplier: str | None = None) -
     if quantity <= 0:
         return {"status": "error", "error": "Quantity must be greater than 0"}
     
-    data = _load_data()
-    sku_clean = sku.strip().upper()
-    items = data.get("inventory", [])
-    item = next((i for i in items if i.get("sku", "").upper() == sku_clean), None)
-    
-    if not item:
-        return {"status": "error", "error": f"SKU '{sku}' not found in inventory system."}
-    
-    po_count = len(data.get("purchase_orders", [])) + 1
-    po_id = f"PO-5{po_count:02d}"
-    
-    chosen_supplier = supplier or "Default Supplier"
-    po_record = {
-        "po_id": po_id,
-        "sku": item["sku"],
-        "item_name": item["name"],
-        "quantity": quantity,
-        "estimated_cost": round(quantity * item.get("price", 0.0), 2),
-        "supplier": chosen_supplier,
-        "status": "DRAFT",
-        "created_at": time.strftime("%Y-%m-%d")
-    }
-    
-    data.setdefault("purchase_orders", []).append(po_record)
-    _save_data(data)
+    with _DATA_LOCK:
+        data = _load_data()
+        sku_clean = sku.strip().upper()
+        items = data.get("inventory", [])
+        item = next((i for i in items if i.get("sku", "").upper() == sku_clean), None)
+        
+        if not item:
+            return {"status": "error", "error": f"SKU '{sku}' not found in inventory system."}
+        
+        po_count = len(data.get("purchase_orders", [])) + 1
+        po_id = f"PO-5{po_count:02d}"
+        
+        chosen_supplier = supplier or "Default Supplier"
+        po_record = {
+            "po_id": po_id,
+            "sku": item["sku"],
+            "item_name": item["name"],
+            "quantity": quantity,
+            "estimated_cost": round(quantity * item.get("price", 0.0), 2),
+            "supplier": chosen_supplier,
+            "status": "DRAFT",
+            "created_at": time.strftime("%Y-%m-%d")
+        }
+        
+        data.setdefault("purchase_orders", []).append(po_record)
+        _save_data(data)
     
     return {
         "status": "success",

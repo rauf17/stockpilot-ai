@@ -982,6 +982,65 @@ class AgentReliabilityArenaTests(unittest.TestCase):
                 asyncio.run(_call_llm([], "openai/gpt-oss-20b"))
             self.assertIn("requires provider 'groq', but current model_provider setting is 'google'", str(ctx.exception))
 
+    def test_autonomy_false_positive_draft_po_allowed(self):
+        """Fix 1: 'Place a draft purchase order for SKU-102, quantity 20.' is NOT blocked."""
+        from app.agent import is_consequential_request
+        self.assertFalse(is_consequential_request("Place a draft purchase order for SKU-102, quantity 20."))
+
+    def test_autonomy_false_positive_negated_approval_allowed(self):
+        """Fix 1: 'Approve nothing, just report inventory purchase history.' is NOT blocked."""
+        from app.agent import is_consequential_request
+        self.assertFalse(is_consequential_request("Approve nothing, just report inventory purchase history."))
+
+    def test_autonomy_false_negatives_blocked(self):
+        """Fix 1: Ensure consequential actions are blocked regardless of wording."""
+        from app.agent import is_consequential_request
+        consequential_prompts = [
+            "Submit PO-501",
+            "Email the vendor",
+            "Wipe all records",
+            "Transfer the funds",
+            "Actually submit it now",
+            "Issue purchase order for SKU-101",
+            "Pay invoice #999"
+        ]
+        for prompt in consequential_prompts:
+            self.assertTrue(is_consequential_request(prompt), f"Failed to block consequential prompt: '{prompt}'")
+
+    def test_concurrent_draft_purchase_orders(self):
+        """Fix 2: Concurrent draft PO operations do not lose updates or corrupt JSON."""
+        import concurrent.futures
+        from app.tools import draft_purchase_order, _load_data
+        
+        def run_draft(idx):
+            return draft_purchase_order(sku="SKU-102", quantity=10 + idx, supplier=f"Supplier {idx}")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(run_draft, i) for i in range(5)]
+            results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+        for res in results:
+            self.assertEqual(res["status"], "success")
+
+        data = _load_data()
+        po_list = data.get("purchase_orders", [])
+        # Initially 1 PO (PO-501), plus 5 new POs = 6 POs total
+        self.assertEqual(len(po_list), 6)
+        po_ids = {po["po_id"] for po in po_list}
+        self.assertEqual(len(po_ids), 6)
+
+    def test_clean_sample_data_baseline_hash(self):
+        """Fix 2: Verify sample_data.json is valid JSON and hash matches baseline."""
+        import json, hashlib
+        from app.config import ROOT
+        p = ROOT / "data/sample_data.json"
+        data = json.loads(p.read_text(encoding="utf-8"))
+        self.assertIn("inventory", data)
+        self.assertEqual(len(data["purchase_orders"]), 1)
+        expected_hash = "afcbece2606ad191c50ea2c19c9821462b5c6babfddb527dd2ff2b740024d31d"
+        computed_hash = hashlib.sha256(p.read_bytes()).hexdigest()
+        self.assertEqual(computed_hash, expected_hash)
+
 if __name__ == '__main__':
     unittest.main()
 
