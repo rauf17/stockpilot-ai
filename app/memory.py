@@ -51,18 +51,32 @@ class Memory:
             if not is_short_clarification or is_intent_change:
                 state.active_goal = user_task
                 state.pending_clarification = None
+                state.extracted_facts.clear()
 
-        # Extract facts from user input
+        # Extract SKU facts
         sku_match = re.search(r'\b(SKU-\d+)\b', user_task, re.IGNORECASE)
         if sku_match:
             state.extracted_facts["sku"] = sku_match.group(1).upper()
 
-        qty_match = re.search(r'\b(\d+)\s*(?:units?|keyboards?|items?|pcs?)?\b', user_task, re.IGNORECASE)
-        if qty_match and (state.pending_clarification == "quantity" or "quantity" in user_task.lower() or is_short_clarification):
-            try:
-                state.extracted_facts["quantity"] = int(qty_match.group(1))
-            except ValueError:
-                pass
+        # Mask SKU patterns from user task text to avoid extracting the SKU number as a quantity
+        task_masked = re.sub(r'\bSKU-\d+\b', '', user_task, flags=re.IGNORECASE)
+
+        # Extract quantity facts strictly
+        explicit_qty_match = re.search(r'\b(?:quantity|qty)\s*:?\s*(\d+)\b', task_masked, re.IGNORECASE)
+        unit_qty_match = re.search(r'\b(\d+)\s*(?:units?|pcs?|pieces?|keyboards?|items?)\b', task_masked, re.IGNORECASE)
+        
+        parsed_qty = None
+        if explicit_qty_match:
+            parsed_qty = int(explicit_qty_match.group(1))
+        elif unit_qty_match:
+            parsed_qty = int(unit_qty_match.group(1))
+        elif (state.pending_clarification == "quantity" or is_short_clarification):
+            digit_match = re.search(r'\b(\d+)\b', task_masked)
+            if digit_match:
+                parsed_qty = int(digit_match.group(1))
+
+        if parsed_qty is not None:
+            state.extracted_facts["quantity"] = parsed_qty
 
         return state
 

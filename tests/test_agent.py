@@ -913,6 +913,31 @@ class AgentReliabilityArenaTests(unittest.TestCase):
                 self.assertEqual(data['status'], 'contract_error')
                 self.assertEqual(data['stop_reason'], 'unrecoverable_contract_error')
 
+    def test_sku_number_is_never_extracted_as_quantity(self):
+        """Fix 2: Ensure SKU numbers (e.g. SKU-102) are NEVER parsed as quantities."""
+        from app.memory import Memory
+        mem = Memory()
+        state1 = mem.process_turn("sess_sku_test", "I need more stock for SKU-102.")
+        self.assertEqual(state1.extracted_facts.get("sku"), "SKU-102")
+        self.assertNotIn("quantity", state1.extracted_facts)
+
+    def test_explicit_sku_and_quantity_single_turn(self):
+        """Fix 2: 'Order SKU-102 quantity 20' extracts sku=SKU-102 and quantity=20."""
+        from app.memory import Memory
+        mem = Memory()
+        state = mem.process_turn("sess_single_turn", "Order SKU-102 quantity 20.")
+        self.assertEqual(state.extracted_facts.get("sku"), "SKU-102")
+        self.assertEqual(state.extracted_facts.get("quantity"), 20)
+
+    def test_new_goal_clears_stale_order_facts(self):
+        """Fix 2: Starting a new goal clears facts from the previous goal."""
+        from app.memory import Memory
+        mem = Memory()
+        mem.process_turn("sess_clear_facts", "Order SKU-102 quantity 20.")
+        state2 = mem.process_turn("sess_clear_facts", "Check inventory for low stock items")
+        self.assertEqual(state2.active_goal, "Check inventory for low stock items")
+        self.assertNotIn("quantity", state2.extracted_facts)
+
 if __name__ == '__main__':
     unittest.main()
 
