@@ -1,13 +1,13 @@
 # Student Submission Details — Agent Arena Assignment 1
 
-- **Full Name**: [Student Name]
-- **Roll Number**: [Student Roll Number]
+- **Full Name**: Abdul Rauf
+- **Roll Number**: 23I-0591
 - **Class / Section**: Agentic AI - Fall 2026
-- **University Email**: student@nu.edu.pk
-- **GitHub Username**: [student-github]
+- **University Email**: i230591@isb.nu.edu.pk
+- **GitHub Username**: rauf17
 - **Agent Name & Domain**: Inventory & Purchasing Sentinel Agent (Inbox Triage & Inventory Management)
-- **Private GitHub Repository URL**: https://github.com/YOUR_GITHUB_USERNAME/Agent_Arena_Submission
-- **Final Source Commit Hash**: 8e11009a0a8eb0cfabf9a383d17ffeaddd047beb
+- **Private GitHub Repository URL**: https://github.com/rauf17/stockpilot-ai
+- **Final Source Commit Hash**: 0feb7a1e45e261aa6ef6a73c8dd120e2e3414e4b
 - **Working Public Agent Interface URL**: https://YOUR-APP.onrender.com/
 - **GET /health URL**: https://YOUR-APP.onrender.com/health
 - **POST /arena/run URL**: https://YOUR-APP.onrender.com/arena/run
