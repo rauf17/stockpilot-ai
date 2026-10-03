@@ -2,7 +2,7 @@ fastapi==0.115.8
 uvicorn==0.34.0
 pydantic==2.10.6
 pydantic-settings==2.8.0
-langchain-core==0.3.42
+langchain-core==0.3.86
 httpx==0.28.1
 langchain-google-genai==2.0.10
 langchain-openai==0.3.7
