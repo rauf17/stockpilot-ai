@@ -7,19 +7,19 @@
 - **GitHub Username**: rauf17
 - **Agent Name & Domain**: Inventory & Purchasing Sentinel Agent (Inbox Triage & Inventory Management)
 - **Private GitHub Repository URL**: https://github.com/rauf17/stockpilot-ai
-- **Final Source Commit Hash**: 0feb7a1e45e261aa6ef6a73c8dd120e2e3414e4b
-- **Working Public Agent Interface URL**: https://YOUR-APP.onrender.com/
-- **GET /health URL**: https://YOUR-APP.onrender.com/health
-- **POST /arena/run URL**: https://YOUR-APP.onrender.com/arena/run
-- **GET /arena/manifest URL**: https://YOUR-APP.onrender.com/arena/manifest
-- **API Documentation URL**: https://YOUR-APP.onrender.com/docs
-- **Hosting Provider**: Render (Web Service)
-- **Default Model & Provider**: Gemini 2.5 Flash / Google GenAI (with explicit LLMProviderError handling)
-- **Other Supported Models**: openai/gpt-oss-20b (Groq Cloud Free Plan)
+- **Final Source Commit Hash**: bb279025547f91aed15ce00122c0379cc93f8166
+- **Public Agent Interface URL**: Pending operator deployment on Render (Blueprint configured in `render.yaml`)
+- **GET /health URL**: Pending operator deployment (`https://stockpilot-ai.onrender.com/health`)
+- **POST /arena/run URL**: Pending operator deployment (`https://stockpilot-ai.onrender.com/arena/run`)
+- **GET /arena/manifest URL**: Pending operator deployment (`https://stockpilot-ai.onrender.com/arena/manifest`)
+- **API Documentation URL**: Pending operator deployment (`https://stockpilot-ai.onrender.com/docs`)
+- **Hosting Provider**: Render Web Service (`render.yaml` deployment blueprint ready)
+- **Default Model & Provider**: Gemini 2.5 Flash / Google GenAI (with strict `LLMProviderError` routing enforcement)
+- **Other Supported Models**: `openai/gpt-oss-20b` (Groq Cloud Free Plan)
 - **Example Input & Expected Result**:
   - Input: `{"task": "Check inventory and report low stock items", "arena_config": {"fault": "none"}}`
   - Expected Result: Status `completed`, stop_reason `goal_completed`, tool_calls containing `check_inventory`.
 - **Cold-Start / Restart Limitations**: In-memory `SessionState` resets on server restart or worker restart.
-- **Instructor Repository Invitation Status**: Ready to invite
+- **Instructor Repository Access**: Ready for instructor access on GitHub
 - **Public Benchmark Cases File**: `evaluation/public_cases.json` (8/8 cases passed)
-- **Model Experiment File**: `evaluation/model_experiment_cases.json` & `evaluation/run_model_experiment.py`
+- **Model Experiment File**: `evaluation/model_experiment_cases.json`, `evaluation/results/summary.json`, & `evaluation/run_model_experiment.py`

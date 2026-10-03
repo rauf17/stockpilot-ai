@@ -1,5 +1,5 @@
 Full name: Abdul Rauf
-Roll number: 23i0591
+Roll number: 23I-0591
 Class / section: Agentic AI - Fall 2026
 University email: i230591@isb.nu.edu.pk
 GitHub username: rauf17
@@ -7,18 +7,19 @@ Agent name: Inventory & Purchasing Sentinel Agent
 Domain: Inbox Triage & Inventory Management
 
 GitHub repository URL: https://github.com/rauf17/stockpilot-ai
-Final commit hash: 0feb7a1e45e261aa6ef6a73c8dd120e2e3414e4b
-Working agent interface: https://YOUR-APP.onrender.com/
-Health endpoint (GET): https://YOUR-APP.onrender.com/health
-Arena endpoint (POST): https://YOUR-APP.onrender.com/arena/run
-Manifest endpoint (GET): https://YOUR-APP.onrender.com/arena/manifest
-API documentation: https://YOUR-APP.onrender.com/docs
+Final commit hash: bb279025547f91aed15ce00122c0379cc93f8166
+Working agent interface: Pending operator deployment on Render (Blueprint in render.yaml)
+Health endpoint (GET): Pending operator deployment (https://stockpilot-ai.onrender.com/health)
+Arena endpoint (POST): Pending operator deployment (https://stockpilot-ai.onrender.com/arena/run)
+Manifest endpoint (GET): Pending operator deployment (https://stockpilot-ai.onrender.com/arena/manifest)
+API documentation: Pending operator deployment (https://stockpilot-ai.onrender.com/docs)
 
-Hosting provider: Render (Web Service)
-Default model / provider: Gemini 2.5 Flash / Google GenAI (with explicit LLMProviderError handling)
+Hosting provider: Render Web Service (render.yaml blueprint ready)
+Default model / provider: Gemini 2.5 Flash / Google GenAI (with strict LLMProviderError routing enforcement)
 Other available models: openai/gpt-oss-20b (Groq Cloud Free Plan)
 Example input: {"task": "Check inventory and report low stock items", "arena_config": {"fault": "none"}}
 Expected result: Status completed, stop_reason goal_completed, tool_calls containing check_inventory.
 Cold-start / restart limitations: In-memory SessionState resets on server restart or worker restart.
-Repository access: Instructor invited / access confirmed
+Repository access: Ready for instructor access on GitHub
 Public test results: evaluation/public_cases.json (8/8 cases passed)
+Model experiment file: evaluation/results/summary.json (10/10 cases benchmarked)

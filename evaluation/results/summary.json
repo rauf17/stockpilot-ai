@@ -1,9 +1,11 @@
 [
   {
     "model": "gemini-2.5-flash",
+    "provider": "google",
     "total_cases": 10,
     "task_success_rate_pct": 50.0,
     "structured_validity_pct": 60.0,
+    "first_attempt_validity_pct": 60.0,
     "action_selection_correctness_pct": 70.0,
     "avg_latency_ms": 32077.65,
     "total_input_tokens": 18500,
@@ -14,9 +16,11 @@
   },
   {
     "model": "openai/gpt-oss-20b",
+    "provider": "groq",
     "total_cases": 10,
     "task_success_rate_pct": 80.0,
     "structured_validity_pct": 100.0,
+    "first_attempt_validity_pct": 100.0,
     "action_selection_correctness_pct": 80.0,
     "avg_latency_ms": 10450.95,
     "total_input_tokens": 17310,

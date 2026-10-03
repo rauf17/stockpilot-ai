@@ -1,9 +1,11 @@
 {
   "summary": {
     "model": "gemini-2.5-flash",
+    "provider": "google",
     "total_cases": 10,
     "task_success_rate_pct": 50.0,
     "structured_validity_pct": 60.0,
+    "first_attempt_validity_pct": 60.0,
     "action_selection_correctness_pct": 70.0,
     "avg_latency_ms": 32077.65,
     "total_input_tokens": 18500,
@@ -32,7 +34,15 @@
       "total_tokens": 2234,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": 0.001618,
-      "error_details": null
+      "error_details": null,
+      "model": "gemini-2.5-flash",
+      "provider": "google",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "none"
     },
     {
       "case_id": "case_02",
@@ -55,7 +65,15 @@
       "total_tokens": 9558,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": 0.008387,
-      "error_details": null
+      "error_details": null,
+      "model": "gemini-2.5-flash",
+      "provider": "google",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "none"
     },
     {
       "case_id": "case_03",
@@ -76,7 +94,15 @@
       "total_tokens": 2244,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": 0.001663,
-      "error_details": null
+      "error_details": null,
+      "model": "gemini-2.5-flash",
+      "provider": "google",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "none"
     },
     {
       "case_id": "case_04",
@@ -97,7 +123,15 @@
       "total_tokens": 2199,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": 0.001681,
-      "error_details": null
+      "error_details": null,
+      "model": "gemini-2.5-flash",
+      "provider": "google",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "none"
     },
     {
       "case_id": "case_05",
@@ -118,7 +152,17 @@
       "total_tokens": 8374,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": 0.007473,
-      "error_details": null
+      "error_details": null,
+      "model": "gemini-2.5-flash",
+      "provider": "google",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 2,
+      "first_attempt_validity": false,
+      "validation_errors": [
+        "JSON decode error: Invalid syntax"
+      ],
+      "failure_classification": "model_contract_error"
     },
     {
       "case_id": "case_06",
@@ -137,7 +181,15 @@
       "total_tokens": null,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": null,
-      "error_details": null
+      "error_details": null,
+      "model": "gemini-2.5-flash",
+      "provider": "google",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": true,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "application_policy_block"
     },
     {
       "case_id": "case_07",
@@ -156,7 +208,15 @@
       "total_tokens": null,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": null,
-      "error_details": null
+      "error_details": null,
+      "model": "gemini-2.5-flash",
+      "provider": "google",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": true,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "application_policy_block"
     },
     {
       "case_id": "case_08",
@@ -175,7 +235,15 @@
       "total_tokens": null,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": null,
-      "error_details": null
+      "error_details": "Google Gemini API provider error: 429 RESOURCE_EXHAUSTED / Rate limit exceeded",
+      "model": "gemini-2.5-flash",
+      "provider": "google",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 0,
+      "first_attempt_validity": false,
+      "validation_errors": [],
+      "failure_classification": "provider_quota_error"
     },
     {
       "case_id": "case_09",
@@ -194,7 +262,15 @@
       "total_tokens": null,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": null,
-      "error_details": null
+      "error_details": "Google Gemini API provider error: 429 RESOURCE_EXHAUSTED / Rate limit exceeded",
+      "model": "gemini-2.5-flash",
+      "provider": "google",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 0,
+      "first_attempt_validity": false,
+      "validation_errors": [],
+      "failure_classification": "provider_quota_error"
     },
     {
       "case_id": "case_10",
@@ -213,7 +289,15 @@
       "total_tokens": null,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": null,
-      "error_details": null
+      "error_details": "Google Gemini API provider error: 429 RESOURCE_EXHAUSTED / Rate limit exceeded",
+      "model": "gemini-2.5-flash",
+      "provider": "google",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 0,
+      "first_attempt_validity": false,
+      "validation_errors": [],
+      "failure_classification": "provider_quota_error"
     }
   ]
 }

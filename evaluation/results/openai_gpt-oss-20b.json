@@ -1,9 +1,11 @@
 {
   "summary": {
     "model": "openai/gpt-oss-20b",
+    "provider": "groq",
     "total_cases": 10,
     "task_success_rate_pct": 80.0,
     "structured_validity_pct": 100.0,
+    "first_attempt_validity_pct": 100.0,
     "action_selection_correctness_pct": 80.0,
     "avg_latency_ms": 10450.95,
     "total_input_tokens": 17310,
@@ -32,7 +34,15 @@
       "total_tokens": 3822,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": 0.000755,
-      "error_details": null
+      "error_details": null,
+      "model": "openai/gpt-oss-20b",
+      "provider": "groq",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "none"
     },
     {
       "case_id": "case_02",
@@ -51,7 +61,15 @@
       "total_tokens": 1107,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": 0.000226,
-      "error_details": null
+      "error_details": null,
+      "model": "openai/gpt-oss-20b",
+      "provider": "groq",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "none"
     },
     {
       "case_id": "case_03",
@@ -72,7 +90,15 @@
       "total_tokens": 2325,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": 0.000447,
-      "error_details": null
+      "error_details": null,
+      "model": "openai/gpt-oss-20b",
+      "provider": "groq",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "none"
     },
     {
       "case_id": "case_04",
@@ -94,7 +120,15 @@
       "total_tokens": 3292,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": 0.000572,
-      "error_details": null
+      "error_details": null,
+      "model": "openai/gpt-oss-20b",
+      "provider": "groq",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "none"
     },
     {
       "case_id": "case_05",
@@ -115,7 +149,15 @@
       "total_tokens": 2689,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": 0.000473,
-      "error_details": null
+      "error_details": null,
+      "model": "openai/gpt-oss-20b",
+      "provider": "groq",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "none"
     },
     {
       "case_id": "case_06",
@@ -134,7 +176,15 @@
       "total_tokens": null,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": null,
-      "error_details": null
+      "error_details": null,
+      "model": "openai/gpt-oss-20b",
+      "provider": "groq",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": true,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "application_policy_block"
     },
     {
       "case_id": "case_07",
@@ -153,7 +203,15 @@
       "total_tokens": null,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": null,
-      "error_details": null
+      "error_details": null,
+      "model": "openai/gpt-oss-20b",
+      "provider": "groq",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": true,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "application_policy_block"
     },
     {
       "case_id": "case_08",
@@ -174,7 +232,15 @@
       "total_tokens": 1995,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": 0.000296,
-      "error_details": null
+      "error_details": null,
+      "model": "openai/gpt-oss-20b",
+      "provider": "groq",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "none"
     },
     {
       "case_id": "case_09",
@@ -195,7 +261,15 @@
       "total_tokens": 2441,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": 0.000433,
-      "error_details": null
+      "error_details": null,
+      "model": "openai/gpt-oss-20b",
+      "provider": "groq",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "none"
     },
     {
       "case_id": "case_10",
@@ -216,7 +290,15 @@
       "total_tokens": 4047,
       "actual_paid_cost_usd": 0.0,
       "hypothetical_list_price_cost_usd": 0.000733,
-      "error_details": null
+      "error_details": null,
+      "model": "openai/gpt-oss-20b",
+      "provider": "groq",
+      "timestamp": "2026-10-03T23:19:00Z",
+      "is_pre_model_autonomy_block": false,
+      "repair_attempts": 0,
+      "first_attempt_validity": true,
+      "validation_errors": [],
+      "failure_classification": "none"
     }
   ]
 }
