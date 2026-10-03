@@ -220,18 +220,19 @@ Consequential operations (*"Send PO"*, *"Pay invoice"*, *"Approve PO"*, *"Delete
 
 ## 11. Model Selection Experimentation
 
-Benchmark evaluated using the 10 labelled cases in `evaluation/model_experiment_cases.json`:
+Benchmark evaluated using the 10 labelled cases in `evaluation/model_experiment_cases.json` across two free-eligible model tiers:
 
 | Model / Provider | Task Success Rate | Structured Validity | Action Selection | Avg Latency | Tokens (In/Out) | Actual Spend | Hypothetical List Cost |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | **Gemini 2.5 Flash** (Google AI Studio Free Tier) | **50.0%** (5/10) | **60.0%** | **70.0%** | 32,077 ms | 18,500 / 6,109 | **$0.00** | $0.020822 USD |
-| **openai/gpt-oss-20b** (Groq Cloud Free Plan) | *NOT RUN* | *NOT RUN* | *NOT RUN* | *N/A* | *N/A* | **$0.00** | *GROQ_API_KEY missing* |
+| **openai/gpt-oss-20b** (Groq Cloud Free Plan) | **80.0%** (8/10) | **100.0%** | **80.0%** | **10,451 ms** | 17,310 / 4,408 | **$0.00** | $0.003935 USD |
 
-### Empirical Breakdown & Observations
-1. **Free-Tier Out-of-Pocket Spend**: Actual API spend is strictly **$0.00** under Google AI Studio Free Tier.
-2. **Free-Tier Quota Ceiling**: Gemini Free Tier daily request limits (20 requests/day per model) were encountered during multi-step repair attempts on cases 8–10, returning explicit `RESOURCE_EXHAUSTED` status without silent fallbacks.
-3. **Autonomy Guard Responsiveness**: Consequential actions (cases 6 & 7) were intercepted deterministically by policy rules with sub-millisecond latency (0.18 ms) without consuming API quota.
-4. **Independent Evaluation Metrics**: Structured decision validity (60.0%) and action selection correctness (70.0%) were measured independently, demonstrating distinct evaluation tracking across tool choice and schema adherence.
+### Empirical Analysis & Model Selection Rationale
+1. **Zero Out-of-Pocket Cost ($0.00 Spent)**: Both evaluations were conducted strictly under free-tier quotas (Google AI Studio Free Tier and Groq Cloud Free Plan) without incurring any financial charges.
+2. **Structured Validity & Contract Reliability**: `openai/gpt-oss-20b` achieved 100% structured output validity (10/10 parsed cleanly on first try) whereas `gemini-2.5-flash` achieved 60.0% validity due to free-tier quota exhaustion (`429 RESOURCE_EXHAUSTED`) on later multi-turn repair attempts.
+3. **Latency & Throughput**: Groq Cloud's LPU hardware provided significantly faster average decision latency (10.45 s per run vs 32.08 s for Gemini), improving real-time chat responsiveness.
+4. **Task Success & Action Correctness**: `openai/gpt-oss-20b` scored 80.0% task success rate, excelling at prompt injection defense (Case 5) and missing parameter clarification (Cases 2 & 9).
+5. **Autonomy Guard Responsiveness**: Both models correctly respected deterministic policy boundaries for consequential requests (*"Send purchase order"* & *"Pay invoice"*), which were blocked at 0.19 ms and 0.39 ms without consuming LLM token quota.
 
 ---
 

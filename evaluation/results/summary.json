@@ -11,5 +11,18 @@
     "total_tokens": 24609,
     "actual_paid_cost_usd": 0.0,
     "hypothetical_list_price_cost_usd": 0.020822
+  },
+  {
+    "model": "openai/gpt-oss-20b",
+    "total_cases": 10,
+    "task_success_rate_pct": 80.0,
+    "structured_validity_pct": 100.0,
+    "action_selection_correctness_pct": 80.0,
+    "avg_latency_ms": 10450.95,
+    "total_input_tokens": 17310,
+    "total_output_tokens": 4408,
+    "total_tokens": 21718,
+    "actual_paid_cost_usd": 0.0,
+    "hypothetical_list_price_cost_usd": 0.003935
   }
 ]

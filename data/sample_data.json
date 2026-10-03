@@ -59,6 +59,16 @@
       "supplier": "Default Supplier",
       "status": "DRAFT",
       "created_at": "2026-10-03"
+    },
+    {
+      "po_id": "PO-503",
+      "sku": "SKU-104",
+      "item_name": "Standing Desk Converter",
+      "quantity": 42,
+      "estimated_cost": 8358.0,
+      "supplier": "Default Supplier",
+      "status": "DRAFT",
+      "created_at": "2026-10-03"
     }
   ],
   "suppliers": [
