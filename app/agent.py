@@ -29,6 +29,20 @@ class LLMProviderError(Exception):
 
 import asyncio
 
+SUPPORTED_MODELS = {
+    "gemini-2.5-flash": "google",
+    "gemini-1.5-pro": "google",
+    "openai/gpt-oss-20b": "groq",
+    "gpt-4o-mini": "openai",
+}
+
+ALLOWED_PROVIDER_ALIASES = {
+    "google": ["google", "gemini"],
+    "gemini": ["google", "gemini"],
+    "groq": ["groq"],
+    "openai": ["openai", "gpt"]
+}
+
 async def _call_llm(messages: list, model_name: str, llm: Any = None) -> tuple[str, Metrics]:
     """Call injectable LLM or configured LLM provider asynchronously via thread pool to prevent event-loop blocking."""
     def _sync_call():
@@ -53,13 +67,30 @@ async def _call_llm(messages: list, model_name: str, llm: Any = None) -> tuple[s
         gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or settings.gemini_api_key
         groq_key = os.getenv("GROQ_API_KEY") or settings.groq_api_key
         openai_key = os.getenv("OPENAI_API_KEY") or settings.openai_api_key
-        provider = settings.model_provider.lower()
+
+        target_model = model_name if (model_name and model_name != "unconfigured") else settings.model_name
+        provider_setting = settings.model_provider.lower() if settings.model_provider else "unconfigured"
+
+        if not target_model or target_model == "unconfigured":
+            raise LLMProviderError("Model name is unconfigured.")
+
+        if target_model not in SUPPORTED_MODELS:
+            raise LLMProviderError(f"Unknown or unsupported model '{target_model}'. Supported models: {list(SUPPORTED_MODELS.keys())}")
+
+        required_provider = SUPPORTED_MODELS[target_model]
+        allowed_aliases = ALLOWED_PROVIDER_ALIASES.get(required_provider, [required_provider])
+
+        if provider_setting not in allowed_aliases:
+            raise LLMProviderError(
+                f"Model '{target_model}' requires provider '{required_provider}', but current model_provider setting is '{settings.model_provider}'."
+            )
 
         # 1. Google Gemini Provider (Free Tier)
-        if (provider in ["google", "gemini"] or model_name.startswith("gemini")) and gemini_key:
+        if required_provider in ["google", "gemini"]:
+            if not gemini_key:
+                raise LLMProviderError("Google Gemini API Key is not configured in environment (GEMINI_API_KEY).")
             try:
                 from langchain_google_genai import ChatGoogleGenerativeAI
-                target_model = model_name if (model_name and model_name != "unconfigured") else settings.model_name or "gemini-2.5-flash"
                 llm_inst = ChatGoogleGenerativeAI(
                     model=target_model,
                     google_api_key=gemini_key,
@@ -79,10 +110,11 @@ async def _call_llm(messages: list, model_name: str, llm: Any = None) -> tuple[s
                 raise LLMProviderError(f"Gemini API provider error: {str(e)}") from e
 
         # 2. Groq Provider (Free Plan)
-        elif (provider in ["groq"] or model_name.startswith("groq") or "gpt-oss" in model_name or "llama" in model_name or "mixtral" in model_name) and groq_key:
+        elif required_provider == "groq":
+            if not groq_key:
+                raise LLMProviderError("Groq API Key is not configured in environment (GROQ_API_KEY).")
             try:
                 from langchain_groq import ChatGroq
-                target_model = model_name if (model_name and model_name != "unconfigured") else settings.model_name or "openai/gpt-oss-20b"
                 llm_inst = ChatGroq(
                     model=target_model,
                     groq_api_key=groq_key,
@@ -109,10 +141,11 @@ async def _call_llm(messages: list, model_name: str, llm: Any = None) -> tuple[s
                 raise LLMProviderError(f"Groq API provider error: {str(e)}") from e
 
         # 3. OpenAI Provider
-        elif (provider in ["openai", "gpt"] or model_name.startswith("gpt")) and openai_key:
+        elif required_provider == "openai":
+            if not openai_key:
+                raise LLMProviderError("OpenAI API Key is not configured in environment (OPENAI_API_KEY).")
             try:
                 from langchain_openai import ChatOpenAI
-                target_model = model_name if (model_name and model_name != "unconfigured") else settings.model_name or "gpt-4o-mini"
                 llm_inst = ChatOpenAI(
                     model=target_model,
                     api_key=openai_key,
@@ -132,11 +165,7 @@ async def _call_llm(messages: list, model_name: str, llm: Any = None) -> tuple[s
                 log.error("OpenAI provider execution failure: %s", e)
                 raise LLMProviderError(f"OpenAI API provider error: {str(e)}") from e
 
-        # 4. Explicit provider error: No API key or provider is unconfigured
-        if not gemini_key and not groq_key and not openai_key:
-            raise LLMProviderError("LLM Provider unconfigured: No API key present in environment (GEMINI_API_KEY / GROQ_API_KEY).")
-
-        raise LLMProviderError(f"Model provider '{provider}' / model '{model_name}' is not configured or failed to execute.")
+        raise LLMProviderError(f"Model provider '{settings.model_provider}' / model '{target_model}' routing failed.")
 
     return await asyncio.to_thread(_sync_call)
 

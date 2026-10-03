@@ -25,7 +25,7 @@ def manifest():
 
 @router.get('/models')
 def models():
-    return {'models': ['gemini-2.5-flash', 'gemini-1.5-pro', 'gpt-4o-mini', 'unconfigured']}
+    return {'models': ['gemini-2.5-flash', 'openai/gpt-oss-20b', 'gpt-4o-mini', 'gemini-1.5-pro', 'unconfigured']}
 
 @router.post('/arena/run', response_model=ArenaResponse)
 async def arena_run(payload: ArenaRequest):

@@ -938,6 +938,50 @@ class AgentReliabilityArenaTests(unittest.TestCase):
         self.assertEqual(state2.active_goal, "Check inventory for low stock items")
         self.assertNotIn("quantity", state2.extracted_facts)
 
+    def test_gemini_routing_valid_provider_and_model(self):
+        """Fix 1: Gemini model gemini-2.5-flash requires google provider."""
+        from app.agent import _call_llm, LLMProviderError
+        import asyncio
+        from unittest.mock import patch
+        with patch("app.config.settings.model_provider", "google"), \
+             patch("app.config.settings.gemini_api_key", ""), \
+             patch.dict("os.environ", {"GEMINI_API_KEY": ""}):
+            with self.assertRaises(LLMProviderError) as ctx:
+                asyncio.run(_call_llm([], "gemini-2.5-flash"))
+            self.assertIn("Google Gemini API Key is not configured", str(ctx.exception))
+
+    def test_groq_routing_valid_provider_and_model(self):
+        """Fix 1: Groq model openai/gpt-oss-20b requires groq provider."""
+        from app.agent import _call_llm, LLMProviderError
+        import asyncio
+        from unittest.mock import patch
+        with patch("app.config.settings.model_provider", "groq"), \
+             patch("app.config.settings.groq_api_key", ""), \
+             patch.dict("os.environ", {"GROQ_API_KEY": ""}):
+            with self.assertRaises(LLMProviderError) as ctx:
+                asyncio.run(_call_llm([], "openai/gpt-oss-20b"))
+            self.assertIn("Groq API Key is not configured", str(ctx.exception))
+
+    def test_unknown_model_raises_llm_provider_error(self):
+        """Fix 1: Unknown model raises LLMProviderError."""
+        from app.agent import _call_llm, LLMProviderError
+        import asyncio
+        from unittest.mock import patch
+        with patch("app.config.settings.model_provider", "google"):
+            with self.assertRaises(LLMProviderError) as ctx:
+                asyncio.run(_call_llm([], "unknown-model-xyz"))
+            self.assertIn("Unknown or unsupported model 'unknown-model-xyz'", str(ctx.exception))
+
+    def test_mismatched_provider_model_raises_llm_provider_error(self):
+        """Fix 1: Groq model with google provider setting raises LLMProviderError."""
+        from app.agent import _call_llm, LLMProviderError
+        import asyncio
+        from unittest.mock import patch
+        with patch("app.config.settings.model_provider", "google"):
+            with self.assertRaises(LLMProviderError) as ctx:
+                asyncio.run(_call_llm([], "openai/gpt-oss-20b"))
+            self.assertIn("requires provider 'groq', but current model_provider setting is 'google'", str(ctx.exception))
+
 if __name__ == '__main__':
     unittest.main()
 

@@ -10,4 +10,6 @@ services:
       - key: PYTHON_VERSION
         value: 3.12.10
       - key: MODEL_PROVIDER
-        value: unconfigured
+        value: google
+      - key: MODEL_NAME
+        value: gemini-2.5-flash

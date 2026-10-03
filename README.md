@@ -238,18 +238,76 @@ Benchmark evaluated using the 10 labelled cases in `evaluation/model_experiment_
 
 ## 12. Testing & Verification
 
-- **Unit Test Suite**: 40 / 40 PyTest / Unittest cases PASSED (`python -m unittest discover -s tests -v`).
+- **Unit Test Suite**: 47 / 47 Unittest cases PASSED (`python -m unittest discover -s tests -v`).
 - **Data Isolation Integrity**: `data/sample_data.json` SHA-256 hash verified identical before and after test execution (`cf99b9cf9c58...`).
 
 ---
 
-## 13. Assignment Requirement Mapping Matrix
+## 13. Local Setup & Environment Configuration
+
+### Local Installation Commands
+```bash
+# 1. Clone repository & enter project directory
+git clone https://github.com/rauf17/stockpilot-ai.git
+cd stockpilot-ai
+
+# 2. Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: .\venv\Scripts\activate
+
+# 3. Install pinned dependencies cleanly
+pip install -r requirements.txt
+
+# 4. Start local development server
+python run.py
+# Server runs on http://127.0.0.1:8000
+```
+
+### Environment Variables Matrix
+Configure these in `.env` or system environment:
+
+| Variable | Description | Default | Required For |
+|---|---|---|---|
+| `MODEL_PROVIDER` | Active LLM provider (`google`, `groq`, `openai`) | `google` | All live model calls |
+| `MODEL_NAME` | Active LLM model name (`gemini-2.5-flash`, `openai/gpt-oss-20b`, `gpt-4o-mini`) | `gemini-2.5-flash` | All live model calls |
+| `GEMINI_API_KEY` | Google AI Studio Free Tier API key | `""` | Provider `google` |
+| `GROQ_API_KEY` | Groq Cloud Free Plan API key | `""` | Provider `groq` |
+| `OPENAI_API_KEY` | OpenAI API key | `""` | Provider `openai` |
+| `MAX_STEPS` | Maximum iteration steps per turn ($1 \le n \le 6$) | `6` | Bounded agent execution |
+| `MAX_TOOL_RETRIES` | Repair retries per step ($0 \le n \le 2$) | `2` | JSON decision repair |
+| `MAX_OUTPUT_TOKENS` | Token ceiling per LLM call | `512` | Token & cost control |
+| `RUN_TIMEOUT_SECONDS` | Request wall-clock timeout ($0 < s \le 40$) | `40.0` | Timeout containment |
+
+---
+
+## 14. API Endpoints Reference
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/` | `GET` | HTML Web Interface |
+| `/health` | `GET` | Health Check (`{"status": "ok", ...}`) |
+| `/arena/manifest` | `GET` | Agent Arena JSON Manifest |
+| `/models` | `GET` | Enabled Models List (`['gemini-2.5-flash', 'openai/gpt-oss-20b', 'gpt-4o-mini', 'gemini-1.5-pro', 'unconfigured']`) |
+| `/arena/run` | `POST` | Single-turn Arena execution (`ArenaRequest` -> `ArenaResponse`) |
+| `/chat` | `POST` | Multi-turn chat execution with session state (`ChatRequest` -> `ArenaResponse`) |
+| `/chat/{session_id}` | `DELETE` | Purge session memory for `session_id` |
+
+---
+
+## 15. Deployment & Persistence Behavior
+
+- **Deployment Blueprint**: Deployment configured for Render Web Services via `render.yaml` (`MODEL_PROVIDER=google`, `MODEL_NAME=gemini-2.5-flash`).
+- **Memory & State Persistence**: Multi-turn `SessionState` is held in-memory in server state (`request.app.state.memory`). State is per-session (`session_id`) and resets on server or worker restart. `DELETE /chat/{session_id}` purges session state explicitly.
+
+---
+
+## 16. Assignment Requirement Mapping Matrix
 
 | Assignment Requirement | Implementation Component | File / Test Evidence |
 |---|---|---|
-| **Real LLM Decision Path** | Provider integration via Gemini / OpenAI | [`app/agent.py`](file:///c:/Users/AR/Desktop/Agentic_A1/Agent_Arena_Student_Starter/student-agent/app/agent.py#L32-L110) |
-| **No Silent Fallback** | Unconfigured provider raises `LLMProviderError` | `test_provider_failure_produces_explicit_error_state` |
-| **Multi-Turn Goal Preservation** | `SessionState` (`active_goal`, `extracted_facts`) | [`app/memory.py`](file:///c:/Users/AR/Desktop/Agentic_A1/Agent_Arena_Student_Starter/student-agent/app/memory.py#L38-L100) |
+| **Real LLM Decision Path** | Provider integration via Gemini / Groq / OpenAI | [`app/agent.py`](app/agent.py#L29-L135) |
+| **Strict Model Routing & No Silent Fallback** | Explicit model-provider validation; raises `LLMProviderError` on unknown or mismatched model/provider | [`app/agent.py`](app/agent.py#L55-L75), `test_unknown_model_raises_llm_provider_error`, `test_mismatched_provider_model_raises_llm_provider_error` |
+| **Multi-Turn Goal Preservation** | `SessionState` (`active_goal`, `extracted_facts`) | [`app/memory.py`](app/memory.py#L38-L100) |
 | **Event Loop Responsiveness** | Async thread offload via `asyncio.to_thread` | `test_event_loop_responsiveness_during_blocking_llm` |
 | **LLM Wall-Clock Timeout** | Non-blocking `asyncio.timeout` wrapper | `test_llm_timeout_wall_clock_interruption` |
 | **Prompt Injection Defense** | Structured JSON hierarchy & deterministic policy | `test_adversarial_injection_cases` |
