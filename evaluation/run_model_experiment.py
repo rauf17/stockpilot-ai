@@ -21,19 +21,26 @@ RESULTS_DIR = ROOT / "evaluation" / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Official Provider Pricing Rates as of October 2026 ($ / 1,000,000 tokens)
-# Gemini 2.5 Flash (Standard API Mode): Input $0.30/1M, Output $2.50/1M
-# OpenAI GPT-4o-mini: Input $0.15/1M, Output $0.60/1M
+# Gemini 2.5 Flash: Free Tier API mode. Hypothetical list price: Input $0.30/1M, Output $2.50/1M
+# Groq openai/gpt-oss-20b: Free Plan mode. Hypothetical list price: Input $0.10/1M, Output $0.50/1M
 PRICING_CONFIG = {
     "gemini-2.5-flash": {
         "provider": "google",
-        "mode": "standard_api",
-        "pricing_source": "Google Cloud / AI Studio Pricing (October 2026)",
+        "plan": "free_tier",
+        "pricing_source": "Google AI Studio Free Tier (October 2026)",
         "input_price_per_million": 0.30,
         "output_price_per_million": 2.50
     },
+    "openai/gpt-oss-20b": {
+        "provider": "groq",
+        "plan": "free_plan",
+        "pricing_source": "Groq Cloud Free Plan (October 2026)",
+        "input_price_per_million": 0.10,
+        "output_price_per_million": 0.50
+    },
     "gpt-4o-mini": {
         "provider": "openai",
-        "mode": "standard_api",
+        "plan": "standard_api",
         "pricing_source": "OpenAI Platform Pricing (October 2026)",
         "input_price_per_million": 0.15,
         "output_price_per_million": 0.60
@@ -88,14 +95,17 @@ async def evaluate_case(case: dict, model_name: str) -> dict:
     out_tokens = response.metrics.output_tokens if (response and response.metrics) else None
     tot_tokens = (in_tokens + out_tokens) if (in_tokens is not None and out_tokens is not None) else None
 
-    cost_usd = None
+    hypothetical_cost_usd = None
     if in_tokens is not None and out_tokens is not None:
         rates = PRICING_CONFIG.get(model_name, {"input_price_per_million": 0, "output_price_per_million": 0})
-        cost_usd = round(
+        hypothetical_cost_usd = round(
             (in_tokens / 1_000_000 * rates["input_price_per_million"]) +
             (out_tokens / 1_000_000 * rates["output_price_per_million"]),
             6
         )
+
+    # Free Tier / Plan Out-of-Pocket Spend is strictly $0.00
+    actual_paid_cost_usd = 0.0
 
     return {
         "case_id": case["case_id"],
@@ -112,7 +122,8 @@ async def evaluate_case(case: dict, model_name: str) -> dict:
         "input_tokens": in_tokens,
         "output_tokens": out_tokens,
         "total_tokens": tot_tokens,
-        "estimated_cost_usd": cost_usd,
+        "actual_paid_cost_usd": actual_paid_cost_usd,
+        "hypothetical_list_price_cost_usd": hypothetical_cost_usd,
         "error_details": err_detail
     }
 
@@ -126,6 +137,7 @@ async def run_model_benchmark(model_name: str) -> dict:
         res = await evaluate_case(case, model_name)
         results.append(res)
         print(f"[{case['case_id']}] Goal: '{case['user_input'][:30]}...' -> Status: {res['status']} (Expected: {case['expected_status']}) | Success: {res['task_success']} | Latency: {res['latency_ms']}ms")
+        await asyncio.sleep(0.5)  # Pace requests to respect free-tier rate limits
 
     tot = len(results)
     valid_count = sum(1 for r in results if r["structured_output_valid"])
@@ -135,7 +147,7 @@ async def run_model_benchmark(model_name: str) -> dict:
     avg_lat = round(sum(r["latency_ms"] for r in results) / tot, 2) if tot > 0 else 0
     tot_in_tok = sum(r["input_tokens"] for r in results if r["input_tokens"] is not None)
     tot_out_tok = sum(r["output_tokens"] for r in results if r["output_tokens"] is not None)
-    tot_cost = round(sum(r["estimated_cost_usd"] for r in results if r["estimated_cost_usd"] is not None), 6)
+    tot_hypothetical_cost = round(sum(r["hypothetical_list_price_cost_usd"] for r in results if r["hypothetical_list_price_cost_usd"] is not None), 6)
 
     summary = {
         "model": model_name,
@@ -147,7 +159,8 @@ async def run_model_benchmark(model_name: str) -> dict:
         "total_input_tokens": tot_in_tok if tot_in_tok > 0 else None,
         "total_output_tokens": tot_out_tok if tot_out_tok > 0 else None,
         "total_tokens": (tot_in_tok + tot_out_tok) if (tot_in_tok + tot_out_tok) > 0 else None,
-        "total_cost_usd": tot_cost if tot_cost > 0 else None
+        "actual_paid_cost_usd": 0.0,
+        "hypothetical_list_price_cost_usd": tot_hypothetical_cost if tot_hypothetical_cost > 0 else None
     }
 
     # Save detailed per-model results
@@ -162,17 +175,22 @@ async def run_model_benchmark(model_name: str) -> dict:
 
 async def main():
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    openai_key = os.getenv("OPENAI_API_KEY")
+    groq_key = os.getenv("GROQ_API_KEY")
 
     available_models = []
     if gemini_key:
         available_models.append("gemini-2.5-flash")
-    if openai_key:
-        available_models.append("gpt-4o-mini")
+    else:
+        print("[Gemini live benchmark = NOT RUN: GEMINI_API_KEY missing]")
+
+    if groq_key:
+        available_models.append("openai/gpt-oss-20b")
+    else:
+        print("[Groq live benchmark = NOT RUN: GROQ_API_KEY missing]")
 
     if not available_models:
         print("\n[LIVE EXPERIMENT = NOT RUN]")
-        print("ERROR: No live provider API keys found in environment (GEMINI_API_KEY or OPENAI_API_KEY).")
+        print("ERROR: No free provider API keys found in environment (GEMINI_API_KEY or GROQ_API_KEY).")
         print("Please configure valid API keys in environment variables to run live provider model benchmarks.")
         sys.exit(1)
 

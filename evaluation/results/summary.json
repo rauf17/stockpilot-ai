@@ -1,0 +1,15 @@
+[
+  {
+    "model": "gemini-2.5-flash",
+    "total_cases": 10,
+    "task_success_rate_pct": 50.0,
+    "structured_validity_pct": 60.0,
+    "action_selection_correctness_pct": 70.0,
+    "avg_latency_ms": 32077.65,
+    "total_input_tokens": 18500,
+    "total_output_tokens": 6109,
+    "total_tokens": 24609,
+    "actual_paid_cost_usd": 0.0,
+    "hypothetical_list_price_cost_usd": 0.020822
+  }
+]

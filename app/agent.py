@@ -51,10 +51,11 @@ async def _call_llm(messages: list, model_name: str, llm: Any = None) -> tuple[s
 
         import os
         gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or settings.gemini_api_key
+        groq_key = os.getenv("GROQ_API_KEY") or settings.groq_api_key
         openai_key = os.getenv("OPENAI_API_KEY") or settings.openai_api_key
         provider = settings.model_provider.lower()
 
-        # 1. Google Gemini Provider
+        # 1. Google Gemini Provider (Free Tier)
         if (provider in ["google", "gemini"] or model_name.startswith("gemini")) and gemini_key:
             try:
                 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -71,13 +72,43 @@ async def _call_llm(messages: list, model_name: str, llm: Any = None) -> tuple[s
                     metrics.output_tokens = res.usage_metadata.get("output_tokens")
                     in_tok = metrics.input_tokens or 0
                     out_tok = metrics.output_tokens or 0
-                    metrics.estimated_cost_usd = round((in_tok * 0.000000075) + (out_tok * 0.0000003), 6)
+                    metrics.estimated_cost_usd = round((in_tok * 0.00000030) + (out_tok * 0.00000250), 6)
                 return str(res.content), metrics
             except Exception as e:
                 log.error("Gemini provider execution failure: %s", e)
                 raise LLMProviderError(f"Gemini API provider error: {str(e)}") from e
 
-        # 2. OpenAI Provider
+        # 2. Groq Provider (Free Plan)
+        elif (provider in ["groq"] or model_name.startswith("groq") or "gpt-oss" in model_name or "llama" in model_name or "mixtral" in model_name) and groq_key:
+            try:
+                from langchain_groq import ChatGroq
+                target_model = model_name if (model_name and model_name != "unconfigured") else settings.model_name or "openai/gpt-oss-20b"
+                llm_inst = ChatGroq(
+                    model=target_model,
+                    groq_api_key=groq_key,
+                    temperature=0.0,
+                    max_tokens=settings.max_output_tokens
+                )
+                res = llm_inst.invoke(messages)
+                if hasattr(res, "response_metadata") and "token_usage" in res.response_metadata:
+                    usage = res.response_metadata["token_usage"]
+                    metrics.input_tokens = usage.get("prompt_tokens")
+                    metrics.output_tokens = usage.get("completion_tokens")
+                    in_tok = metrics.input_tokens or 0
+                    out_tok = metrics.output_tokens or 0
+                    metrics.estimated_cost_usd = round((in_tok * 0.00000010) + (out_tok * 0.00000050), 6)
+                elif hasattr(res, "usage_metadata") and res.usage_metadata:
+                    metrics.input_tokens = res.usage_metadata.get("input_tokens")
+                    metrics.output_tokens = res.usage_metadata.get("output_tokens")
+                    in_tok = metrics.input_tokens or 0
+                    out_tok = metrics.output_tokens or 0
+                    metrics.estimated_cost_usd = round((in_tok * 0.00000010) + (out_tok * 0.00000050), 6)
+                return str(res.content), metrics
+            except Exception as e:
+                log.error("Groq provider execution failure: %s", e)
+                raise LLMProviderError(f"Groq API provider error: {str(e)}") from e
+
+        # 3. OpenAI Provider
         elif (provider in ["openai", "gpt"] or model_name.startswith("gpt")) and openai_key:
             try:
                 from langchain_openai import ChatOpenAI
@@ -101,9 +132,9 @@ async def _call_llm(messages: list, model_name: str, llm: Any = None) -> tuple[s
                 log.error("OpenAI provider execution failure: %s", e)
                 raise LLMProviderError(f"OpenAI API provider error: {str(e)}") from e
 
-        # 3. Explicit provider error: No API key or provider is unconfigured
-        if not gemini_key and not openai_key:
-            raise LLMProviderError("LLM Provider unconfigured: No API key present in environment (GEMINI_API_KEY / OPENAI_API_KEY).")
+        # 4. Explicit provider error: No API key or provider is unconfigured
+        if not gemini_key and not groq_key and not openai_key:
+            raise LLMProviderError("LLM Provider unconfigured: No API key present in environment (GEMINI_API_KEY / GROQ_API_KEY).")
 
         raise LLMProviderError(f"Model provider '{provider}' / model '{model_name}' is not configured or failed to execute.")
 

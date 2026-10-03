@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     model_provider: str = 'google'
     model_name: str = 'gemini-2.5-flash'
     gemini_api_key: str = ''
+    groq_api_key: str = ''
     openai_api_key: str = ''
     max_steps: int = Field(default=6, ge=1, le=6)
     max_tool_retries: int = Field(default=2, ge=0, le=2)
