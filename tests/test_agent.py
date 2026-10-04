@@ -857,6 +857,67 @@ class AgentReliabilityArenaTests(unittest.TestCase):
                     self.assertEqual(data['status'], 'blocked', f"Prompt '{prompt}' was not blocked by application code")
                     self.assertEqual(data['stop_reason'], 'action_blocked')
 
+    def test_compound_consequential_requests_blocked_by_application_policy(self):
+        """Fix 1: Compound consequential requests with benign words MUST be blocked even if model returns completed."""
+        from unittest.mock import patch
+        from app.models import Metrics
+
+        def fake_llm_completed(*args, **kwargs):
+            return '{"status": "completed", "action": null, "arguments": {}, "user_message": "Completed."}', Metrics(model_calls=1)
+
+        compound_cases = [
+            "Send the PO to the supplier and show me the confirmation.",
+            "Approve PO-501 and report back.",
+            "Pay the invoice, then check the balance.",
+            "What is the status? Also send the purchase order to the supplier.",
+            "Actually submit it now.",
+            "Email the vendor the order.",
+            "Confirm the order with TechGear.",
+            "Wire the money.",
+            "Buy 500 units from the vendor now."
+        ]
+
+        with patch('app.agent._call_llm', side_effect=fake_llm_completed):
+            with TestClient(app) as client:
+                for prompt in compound_cases:
+                    res = client.post('/arena/run', json={'task': prompt})
+                    data = res.json()
+                    self.assertEqual(data['status'], 'blocked', f"Compound prompt '{prompt}' was not blocked")
+                    self.assertEqual(data['stop_reason'], 'action_blocked')
+
+    def test_informational_queries_reject_draft_po_actions(self):
+        """Fix 2: Read-only queries with reorder points/levels MUST NOT execute draft_purchase_order tool."""
+        import json, hashlib
+        from unittest.mock import patch
+        from app.models import Metrics
+        from app.config import ROOT
+
+        p = ROOT / "data/sample_data.json"
+        baseline_bytes = p.read_bytes()
+
+        def fake_llm_malicious_draft(*args, **kwargs):
+            return '{"status": "continue", "action": "draft_purchase_order", "arguments": {"sku": "SKU-104", "quantity": 500}, "user_message": "Drafting PO"}', Metrics(model_calls=1)
+
+        informational_queries = [
+            "List items under their reorder point.",
+            "Tell me about SKU-104 levels.",
+            "Which products need attention?",
+            "What are we running low on?",
+            "Show me the current inventory status.",
+            "How many units of SKU-104 are available?"
+        ]
+
+        with patch('app.agent._call_llm', side_effect=fake_llm_malicious_draft):
+            with TestClient(app) as client:
+                for prompt in informational_queries:
+                    res = client.post('/arena/run', json={'task': prompt})
+                    data = res.json()
+                    self.assertEqual(data['status'], 'contract_error', f"Informational query '{prompt}' did not reject draft action")
+                    
+                    # Verify sample_data.json remains completely unchanged
+                    current_bytes = p.read_bytes()
+                    self.assertEqual(current_bytes, baseline_bytes, "sample_data.json was modified by read-only query")
+
     def test_tool_argument_validation_strict_bounds_and_forbid_extra(self):
         """Phase 2 Requirement 10: Schema validation rejects wrong types, zero, negative, floats, booleans, huge quantity, extra fields."""
         from app.tools import validate_tool_arguments

@@ -140,37 +140,80 @@ def is_consequential_user_request(task: str) -> bool:
     if not t:
         return False
 
-    # Bypasses: Explicit draft or check/report requests are safe unless they contain explicit database wipe commands
-    if any(k in t for k in ["draft", "prepare draft", "create draft", "check", "report", "list", "show", "what", "view", "how many"]):
-        if not any(k in t for k in ["wipe all", "delete all", "wipe database", "drop database"]):
-            return False
+    is_explicit_draft = any(k in t for k in ["draft", "prepare draft", "create draft"])
 
     consequential_patterns = [
-        r"\bsend\b.*\b(po|purchase order|supplier|vendor)\b",
-        r"\bsubmit\b.*\b(po|purchase order|supplier|vendor)\b",
+        r"\bsend\b.*\b(po|purchase order|supplier|vendor|order|confirmation|money)\b",
+        r"\bsubmit\b.*\b(po|purchase order|supplier|vendor|order|it)\b",
         r"\bissue\b.*\b(po|purchase order)\b",
         r"\bapprove\b.*\b(po|purchase order)\b",
-        r"\bpay\b.*\b(invoice|vendor|supplier|\$\d+|\d+ dollars)\b",
-        r"\btransfer\b.*\b(funds|money|\$\d+)\b",
+        r"\bpay\b.*\b(invoice|vendor|supplier|\$\d+|\d+ dollars|balance)\b",
+        r"\b(transfer|wire)\b.*\b(funds|money|\$\d+)\b",
         r"\b(delete|wipe|remove)\b.*\b(records|database|purchase order|all)\b",
         r"\bexecute\b.*\b(purchase|order|transaction)\b",
         r"\bmake\b.*\bpurchase official\b",
-        r"\bconfirm\b.*\bwith the vendor\b",
-        r"\bplace\b.*\border with\b"
+        r"\bconfirm\b.*\b(order|po|purchase|with the vendor|with techgear)\b",
+        r"\bplace\b.*\border with\b",
+        r"\bemail\b.*\b(vendor|supplier|order)\b",
+        r"\bbuy\b.*\b(units|from the vendor|now)\b",
+        r"\bsubmit it now\b",
+        r"\bwire the money\b"
     ]
 
     for pat in consequential_patterns:
         if re.search(pat, t):
+            if is_explicit_draft and not any(k in t for k in ["send", "submit", "pay", "wire", "wipe", "delete", "approve", "confirm", "email", "execute"]):
+                return False
             return True
+
+    if any(k in t for k in ["wipe all", "delete all", "wipe database", "drop database"]):
+        return True
 
     return False
 
 def is_informational_user_request(task: str) -> bool:
     """Check if user task is strictly read-only informational query."""
     t = task.lower().strip()
-    if any(k in t for k in ["draft", "order", "buy", "prepare", "create"]):
+    if not t:
         return False
-    return any(k in t for k in ["what", "show", "list", "check", "view", "report", "low", "stock", "how many", "status"])
+
+    action_intent_patterns = [
+        r"\bdraft\b",
+        r"\bcreate\b.*\b(po|order|purchase)\b",
+        r"\bprepare\b.*\b(po|order|purchase)\b",
+        r"\bplace\b.*\b(po|order|purchase)\b",
+        r"\bbuy\b",
+        r"\bpurchase\b"
+    ]
+    for pat in action_intent_patterns:
+        if re.search(pat, t):
+            return False
+
+    informational_patterns = [
+        r"\breorder point\b",
+        r"\breorder threshold\b",
+        r"\border status\b",
+        r"\bwhat\b",
+        r"\bshow\b",
+        r"\blist\b",
+        r"\bcheck\b",
+        r"\bview\b",
+        r"\breport\b",
+        r"\blow\b",
+        r"\bstock\b",
+        r"\bhow many\b",
+        r"\bstatus\b",
+        r"\bwhich\b",
+        r"\btell me\b",
+        r"\blevels\b",
+        r"\battention\b"
+    ]
+
+    for pat in informational_patterns:
+        if re.search(pat, t):
+            return True
+
+    return False
 
 def parse_and_validate_decision(raw_text: str, trusted_user_goal: str = "") -> tuple[AgentDecision | None, str | None]:
     """Parse JSON and perform schema + semantic + capability policy validation. Returns (decision, error_message)."""

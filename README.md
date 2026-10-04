@@ -191,7 +191,7 @@ Tool arguments are strictly validated before execution using Pydantic schemas (`
 - `CalculateReorderCostArgs`: `sku` (str), `target_stock` ($0 \le \text{int} \le 100,000$).
 
 ### Autonomy Policy Enforcement
-Consequential operations (*"Send PO"*, *"Pay invoice"*, *"Approve PO"*, *"Delete records"*, *"Execute purchase"*) trigger deterministic policy block returning `status: "blocked"` up front. `issue_purchase_order` represents a blocked autonomy boundary.
+User requests containing prohibited consequential side-effects (*"Send PO"*, *"Pay invoice"*, *"Approve PO"*, *"Delete records"*, *"Execute purchase"*, *"Wire money"*) are evaluated during decision validation; if a model decision returns `completed` or `continue` for a consequential request, application-level policy overrides the decision to `status: "blocked"` with `stop_reason: "action_blocked"`. `issue_purchase_order` represents a blocked autonomy boundary.
 
 ---
 
@@ -232,14 +232,14 @@ Benchmark evaluated using the 10 labelled cases in `evaluation/model_experiment_
 2. **Structured Validity & Contract Reliability**: `openai/gpt-oss-20b` achieved 100% structured output validity (10/10 parsed cleanly on first try) whereas `gemini-2.5-flash` achieved 60.0% validity due to free-tier quota exhaustion (`429 RESOURCE_EXHAUSTED`) on later multi-turn repair attempts.
 3. **Latency & Throughput**: Groq Cloud's LPU hardware provided significantly faster average decision latency (10.45 s per run vs 32.08 s for Gemini), improving real-time chat responsiveness.
 4. **Task Success & Action Correctness**: `openai/gpt-oss-20b` scored 80.0% task success rate, excelling at prompt injection defense (Case 5) and missing parameter clarification (Cases 2 & 9).
-5. **Autonomy Guard Responsiveness**: Both models correctly respected deterministic policy boundaries for consequential requests (*"Send purchase order"* & *"Pay invoice"*), which were blocked at 0.19 ms and 0.39 ms without consuming LLM token quota.
+5. **Autonomy Guard Enforcement**: Prohibited consequential operations (*"Send purchase order"* & *"Pay invoice"*) were intercepted during application decision validation and returned `status: "blocked"` with `stop_reason: "action_blocked"`.
 
 ---
 
 ## 12. Testing & Verification
 
-- **Unit Test Suite**: 47 / 47 Unittest cases PASSED (`python -m unittest discover -s tests -v`).
-- **Data Isolation Integrity**: `data/sample_data.json` SHA-256 hash verified identical before and after test execution (`cf99b9cf9c58...`).
+- **Unit Test Suite**: 52 / 52 Unittest cases PASSED (`python -m unittest discover -s tests -v`).
+- **Data Isolation Integrity**: `data/sample_data.json` SHA-256 hash verified identical before and after test execution (`afcbece2606ad191c50ea2c19c9821462b5c6babfddb527dd2ff2b740024d31d`).
 
 ---
 
@@ -310,7 +310,7 @@ Configure these in `.env` or system environment:
 | **Event Loop Responsiveness** | Async thread offload via `asyncio.to_thread` | `test_event_loop_responsiveness_during_blocking_llm` |
 | **LLM Wall-Clock Timeout** | Non-blocking `asyncio.timeout` wrapper | `test_llm_timeout_wall_clock_interruption` |
 | **Prompt Injection Defense** | Structured JSON hierarchy & deterministic policy | `test_adversarial_injection_cases` |
-| **Autonomy Boundary Guard** | Blocking consequential requests up front | `test_paraphrased_autonomy_requests` |
+| **Autonomy Boundary Guard** | Application-level decision validation guard | `test_autonomy_enforcement_paraphrased_consequential_requests` |
 | **Strict Tool Schemas** | Pydantic validation (`extra="forbid"`, bounds) | `test_tool_argument_validation_strict_bounds_and_forbid_extra` |
 | **Budget Enforcement** | Step limits, repair limits, token limits | `test_pathological_invalid_json_repair_budget` |
 | **Sample Data Isolation** | Test setup/teardown data backup & restore | SHA-256 hash verified intact |
