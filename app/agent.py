@@ -134,6 +134,44 @@ async def _call_llm(messages: list, model_name: str, llm: Any = None) -> tuple[s
     return await asyncio.to_thread(_sync_call)
 
 
+def is_consequential_user_request(task: str) -> bool:
+    """Deterministic check for prohibited consequential side-effect requests."""
+    t = task.lower().strip()
+    if not t:
+        return False
+
+    # Bypasses: Explicit draft or check/report requests are safe unless they contain explicit database wipe commands
+    if any(k in t for k in ["draft", "prepare draft", "create draft", "check", "report", "list", "show", "what", "view", "how many"]):
+        if not any(k in t for k in ["wipe all", "delete all", "wipe database", "drop database"]):
+            return False
+
+    consequential_patterns = [
+        r"\bsend\b.*\b(po|purchase order|supplier|vendor)\b",
+        r"\bsubmit\b.*\b(po|purchase order|supplier|vendor)\b",
+        r"\bissue\b.*\b(po|purchase order)\b",
+        r"\bapprove\b.*\b(po|purchase order)\b",
+        r"\bpay\b.*\b(invoice|vendor|supplier|\$\d+|\d+ dollars)\b",
+        r"\btransfer\b.*\b(funds|money|\$\d+)\b",
+        r"\b(delete|wipe|remove)\b.*\b(records|database|purchase order|all)\b",
+        r"\bexecute\b.*\b(purchase|order|transaction)\b",
+        r"\bmake\b.*\bpurchase official\b",
+        r"\bconfirm\b.*\bwith the vendor\b",
+        r"\bplace\b.*\border with\b"
+    ]
+
+    for pat in consequential_patterns:
+        if re.search(pat, t):
+            return True
+
+    return False
+
+def is_informational_user_request(task: str) -> bool:
+    """Check if user task is strictly read-only informational query."""
+    t = task.lower().strip()
+    if any(k in t for k in ["draft", "order", "buy", "prepare", "create"]):
+        return False
+    return any(k in t for k in ["what", "show", "list", "check", "view", "report", "low", "stock", "how many", "status"])
+
 def parse_and_validate_decision(raw_text: str, trusted_user_goal: str = "") -> tuple[AgentDecision | None, str | None]:
     """Parse JSON and perform schema + semantic + capability policy validation. Returns (decision, error_message)."""
     cleaned = raw_text.strip()
@@ -151,10 +189,24 @@ def parse_and_validate_decision(raw_text: str, trusted_user_goal: str = "") -> t
     except ValidationError as val_err:
         return None, f"Schema validation error: {str(val_err)}"
 
-    # Structural & Capability Boundary Validation
+    # Code-Level Autonomy Policy Guard against adversarial model completion
+    if trusted_user_goal and is_consequential_user_request(trusted_user_goal):
+        if decision.status in ["completed", "continue"]:
+            return AgentDecision(
+                status="blocked",
+                action=None,
+                arguments={},
+                user_message="Requested action is a blocked consequential external side-effect requiring human manager authorization."
+            ), None
+
+    # Code-Level Read-Only Policy Guard & Capability Validation
     if decision.status == "continue":
         if not decision.action:
             return None, "Semantic error: 'action' cannot be empty when status is 'continue'."
+
+        if trusted_user_goal and is_informational_user_request(trusted_user_goal) and decision.action == "draft_purchase_order":
+            return None, "Policy validation error: Action 'draft_purchase_order' is prohibited for read-only informational requests."
+
         allowed_tools = ["check_inventory", "draft_purchase_order", "calculate_reorder_cost"]
         
         if decision.action == "issue_purchase_order":

@@ -800,9 +800,9 @@ class AgentReliabilityArenaTests(unittest.TestCase):
         from unittest.mock import patch
         from app.models import Metrics, ExternalContext
 
-        # Case A: Model attempts unauthorized action 'issue_purchase_order'
+        # Case A: User asks "What are we running low on?", fake LLM returns draft_purchase_order
         def fake_llm_case_a(*args, **kwargs):
-            return '{"status": "continue", "action": "issue_purchase_order", "arguments": {"po_id": "PO-501"}, "user_message": "Issuing PO"}', Metrics(model_calls=1)
+            return '{"status": "continue", "action": "draft_purchase_order", "arguments": {"sku": "SKU-101", "quantity": 10}, "user_message": "Drafting PO"}', Metrics(model_calls=1)
 
         with patch('app.agent._call_llm', side_effect=fake_llm_case_a):
             with TestClient(app) as client:
@@ -831,12 +831,13 @@ class AgentReliabilityArenaTests(unittest.TestCase):
                 self.assertEqual(res.json()['status'], 'contract_error')
 
     def test_autonomy_enforcement_paraphrased_consequential_requests(self):
-        """Phase 2 Requirement 9: Consequential action requests return blocked through model decision/policy."""
+        """Phase 2 Requirement 9: Prove application code-level policy blocks consequential requests even if model returns completed."""
         from unittest.mock import patch
         from app.models import Metrics
 
-        def fake_llm_blocked(*args, **kwargs):
-            return '{"status": "blocked", "action": null, "arguments": {}, "user_message": "Requested consequential external action is blocked."}', Metrics(model_calls=1)
+        # Scripted model deliberately returns 'completed' to prove application code enforcement
+        def fake_llm_completed_adversarial(*args, **kwargs):
+            return '{"status": "completed", "action": null, "arguments": {}, "user_message": "Action executed successfully."}', Metrics(model_calls=1)
 
         consequential_prompts = [
             "Send the purchase order to the supplier.",
@@ -844,15 +845,16 @@ class AgentReliabilityArenaTests(unittest.TestCase):
             "Pay the invoice.",
             "Delete all purchase order records.",
             "Place the order with the vendor.",
-            "Execute the purchase."
+            "Execute the purchase.",
+            "Wipe all records"
         ]
 
-        with patch('app.agent._call_llm', side_effect=fake_llm_blocked):
+        with patch('app.agent._call_llm', side_effect=fake_llm_completed_adversarial):
             with TestClient(app) as client:
                 for prompt in consequential_prompts:
                     res = client.post('/arena/run', json={'task': prompt})
                     data = res.json()
-                    self.assertEqual(data['status'], 'blocked', f"Prompt '{prompt}' was not blocked")
+                    self.assertEqual(data['status'], 'blocked', f"Prompt '{prompt}' was not blocked by application code")
                     self.assertEqual(data['stop_reason'], 'action_blocked')
 
     def test_tool_argument_validation_strict_bounds_and_forbid_extra(self):

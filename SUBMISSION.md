@@ -7,7 +7,7 @@
 - **GitHub Username**: rauf17
 - **Agent Name & Domain**: Inventory & Purchasing Sentinel Agent (Inbox Triage & Inventory Management)
 - **Private GitHub Repository URL**: https://github.com/rauf17/stockpilot-ai
-- **Final Source Commit Hash**: cb53e4193361d7a318795912084d3b22e61aee57
+- **Final Source Commit Hash**: 5be6c21bb10918fef2d07c81abc72b5c0fa2a767
 - **Public Agent Interface URL**: Pending operator deployment on Render (Blueprint configured in `render.yaml`)
 - **GET /health URL**: Pending operator deployment (`https://stockpilot-ai.onrender.com/health`)
 - **POST /arena/run URL**: Pending operator deployment (`https://stockpilot-ai.onrender.com/arena/run`)
