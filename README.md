@@ -25,7 +25,7 @@ An autonomous, bounded single-agent application built for **Inbox Triage & Inven
 | **6. State** | Explicit `SessionState` (`active_goal`, `extracted_facts`, `pending_clarification`) & `AgentState` (`goal`, `step_count`, `max_steps`, `completed_actions`, `observations`, `errors`, `status`, `stop_reason`). |
 | **7. Autonomy Boundary** | **Allowed**: Read inventory, calculate target stock costs, draft DRAFT sandbox POs. **Blocked**: Issuing real POs, paying vendor invoices, deleting records, or sending supplier communications. |
 | **8. Primary Risks** | Prompt injection in external notes; hallucinated tool choices; missing quantity ambiguity; malformed model JSON; event-loop thread blocking. |
-| **9. Evaluation Criteria** | 100% pass rate on unit test suite (52/52 tests) and public Reliability Arena benchmarks (Categories A-F), structured schema validity, strict injection defense, and bounded resource limits. |
+| **9. Evaluation Criteria** | 100% pass rate on unit test suite (54/54 tests) and public Reliability Arena benchmarks (Categories A-F), structured schema validity, strict injection defense, and bounded resource limits. |
 
 ---
 

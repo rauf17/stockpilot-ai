@@ -7,13 +7,13 @@
 - **GitHub Username**: rauf17
 - **Agent Name & Domain**: Inventory & Purchasing Sentinel Agent (Inbox Triage & Inventory Management)
 - **Private GitHub Repository URL**: https://github.com/rauf17/stockpilot-ai
-- **Final Source Commit Hash**: 50c9d54e427d14fe7aa5fcac7aa5261eb8bfd1ce
-- **Public Agent Interface URL**: Pending operator deployment on Render (Blueprint configured in `render.yaml`)
-- **GET /health URL**: Pending operator deployment (`https://stockpilot-ai.onrender.com/health`)
-- **POST /arena/run URL**: Pending operator deployment (`https://stockpilot-ai.onrender.com/arena/run`)
-- **GET /arena/manifest URL**: Pending operator deployment (`https://stockpilot-ai.onrender.com/arena/manifest`)
-- **API Documentation URL**: Pending operator deployment (`https://stockpilot-ai.onrender.com/docs`)
-- **Hosting Provider**: Render Web Service (`render.yaml` deployment blueprint ready)
+- **Deployed Source Commit Hash**: eab7a76312611cd3704ebc93da9ef095ef1de6f5
+- **Public Agent Interface URL**: https://stockpilot-ai-xm2u.onrender.com/
+- **GET /health URL**: https://stockpilot-ai-xm2u.onrender.com/health
+- **POST /arena/run URL**: https://stockpilot-ai-xm2u.onrender.com/arena/run
+- **GET /arena/manifest URL**: https://stockpilot-ai-xm2u.onrender.com/arena/manifest
+- **API Documentation URL**: https://stockpilot-ai-xm2u.onrender.com/docs
+- **Hosting Provider**: Render Web Service (Live deployment active on main branch)
 - **Default Model & Provider**: Gemini 2.5 Flash / Google GenAI (with strict `LLMProviderError` routing enforcement)
 - **Other Supported Models**: `openai/gpt-oss-20b` (Groq Cloud Free Plan)
 - **Example Input & Expected Result**:
