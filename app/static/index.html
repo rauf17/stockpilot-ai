@@ -1,6 +1,220 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>StockPilot AI</title><link rel="stylesheet" href="/static/style.css">
-<header><h1>StockPilot AI</h1><p>Inventory &amp; Purchasing Sentinel Agent</p><a href="/docs">API documentation</a></header>
-<main><section><label for="model">Available model</label><select id="model"></select><button id="reset" type="button">New chat</button><div id="messages" aria-live="polite"></div><form id="chat"><label for="task">Your request</label><textarea id="task" required maxlength="10000"></textarea><button id="send">Send</button></form></section>
-<aside><h2>Context and observations</h2><label for="external">Untrusted external note (optional)</label><textarea id="external" maxlength="10000"></textarea><p id="memory">0 messages in this chat</p><pre id="observations">No observations yet.</pre><h2>Current run</h2><p id="status" role="status">Idle</p><pre id="trace">No tool calls yet.</pre></aside></main>
-<footer>Memory is temporary. Reloading starts a new chat. Never paste API keys into the interface.</footer><script src="/static/app.js"></script></html>
+<!doctype html>
+<html lang="en">
 
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StockPilot AI — Inventory &amp; Purchasing</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+</head>
+
+<body class="console-theme">
+  <!-- TOP CONSOLE BAR -->
+  <header class="console-header">
+    <div class="header-brand">
+      <div class="sentinel-badge">
+        <svg class="sentinel-logo" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true">
+          <rect x="4" y="10" width="32" height="24" rx="4" fill="#1e293b" stroke="#f59e0b" stroke-width="2" />
+          <path d="M12 10V6C12 4.89543 12.8954 4 14 4H26C27.1046 4 28 4.89543 28 6V10" stroke="#f59e0b"
+            stroke-width="2" />
+          <rect x="9" y="15" width="22" height="6" rx="2" fill="#0f172a" />
+          <circle cx="14" cy="18" r="2" fill="#10b981" />
+          <circle cx="20" cy="18" r="2" fill="#f59e0b" />
+          <circle cx="26" cy="18" r="2" fill="#ef4444" />
+          <line x1="12" y1="26" x2="28" y2="26" stroke="#94a3b8" stroke-width="2" stroke-dasharray="2 2" />
+        </svg>
+      </div>
+      <div class="brand-titles">
+        <div class="brand-row">
+          <h1 class="brand-title">STOCKPILOT AI</h1>
+          <span id="system-status-pill" class="system-status-pill online"><span class="status-dot"></span> SYSTEM
+            ONLINE</span>
+        </div>
+        <p class="brand-subtitle">Inventory &amp; Purchasing</p>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <div class="model-select-wrapper">
+        <label for="model" class="control-label">AI ENGINE</label>
+        <select id="model" class="console-select" aria-label="Select AI Model"></select>
+      </div>
+      <button id="reset" type="button" class="btn btn-secondary">
+        <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd"
+            d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+            clip-rule="evenodd" />
+        </svg>
+        New Chat
+      </button>
+      <a href="/docs" target="_blank" class="btn btn-outline" rel="noopener">API Docs ↗</a>
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE -->
+  <main class="console-workspace">
+    <!-- LEFT PANEL: CONVERSATION & TASK INPUT -->
+    <section class="panel main-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">
+          <svg class="panel-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd"
+              d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zm-4 0h-2v2h2V9z"
+              clip-rule="evenodd" />
+          </svg>
+          Activity
+        </h2>
+        <div id="memory" class="memory-indicator">0 messages in session</div>
+      </div>
+
+      <!-- CHAT MESSAGES / EMPTY STATE CONTAINER -->
+      <div id="messages-wrapper" class="messages-wrapper">
+        <div id="empty-state" class="empty-state">
+          <div class="empty-icon-container">
+            <svg class="empty-mascot-logo" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true">
+              <rect x="4" y="10" width="32" height="24" rx="4" fill="#1e293b" stroke="#f59e0b" stroke-width="2" />
+              <path d="M12 10V6C12 4.89543 12.8954 4 14 4H26C27.1046 4 28 4.89543 28 6V10" stroke="#f59e0b"
+                stroke-width="2" />
+              <rect x="9" y="15" width="22" height="6" rx="2" fill="#0f172a" />
+              <circle cx="14" cy="18" r="2" fill="#10b981" />
+              <circle cx="20" cy="18" r="2" fill="#f59e0b" />
+              <circle cx="26" cy="18" r="2" fill="#ef4444" />
+              <line x1="12" y1="26" x2="28" y2="26" stroke="#94a3b8" stroke-width="2" stroke-dasharray="2 2" />
+            </svg>
+          </div>
+          <h3>Ready.</h3>
+          <p>Ask about stock levels, reorder costs, or draft purchase orders. Try <span
+              style="white-space:nowrap">SKU-102</span>.</p>
+          <div class="suggested-tasks-label">Quick actions</div>
+          <div class="suggested-tasks">
+            <button type="button" class="chip" data-prompt="Check the stock level of SKU-102">
+              📦 Check SKU-102 Stock
+            </button>
+            <button type="button" class="chip" data-prompt="Find low-stock inventory">
+              🏷️ Find Low Stock Items
+            </button>
+            <button type="button" class="chip" data-prompt="What is the reorder cost for SKU-102?">
+              📋 Calculate Reorder Cost
+            </button>
+          </div>
+        </div>
+        <div id="messages" aria-live="polite" class="messages-container"></div>
+      </div>
+
+      <!-- CHAT INPUT FORM -->
+      <form id="chat" class="chat-form">
+        <div class="form-input-header">
+          <label for="task" class="input-label">Task</label>
+          <span class="char-limit">Max 10,000 chars</span>
+        </div>
+        <div class="input-group">
+          <textarea id="task" required maxlength="10000"
+            placeholder="Enter task (e.g., Check stock level of SKU-102)..." rows="3"></textarea>
+          <button id="send" type="submit" class="btn btn-primary btn-send">Run</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- RIGHT PANEL: OBSERVABILITY, TIMELINE & CONTEXT -->
+    <aside class="panel side-panel">
+      <!-- UNTRUSTED EXTERNAL CONTEXT CARD -->
+      <div class="card context-card">
+        <div class="card-header warning-header">
+          <div class="card-title">
+            <svg class="warning-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd"
+                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                clip-rule="evenodd" />
+            </svg>
+            External context
+          </div>
+          <span class="untrusted-badge">DATA ONLY</span>
+        </div>
+        <p class="context-disclaimer">
+          ⚠️ <strong>External context is untrusted.</strong> It is treated as data, not instructions.
+        </p>
+        <textarea id="external" maxlength="10000" placeholder="Paste external notes or supplier data here (optional)..."
+          rows="2" class="console-textarea"></textarea>
+      </div>
+
+      <!-- CURRENT RUN STATUS CARD -->
+      <div class="card status-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                clip-rule="evenodd" />
+            </svg>
+            Run status
+          </div>
+        </div>
+        <div class="status-body">
+          <div id="status-pill" class="status-pill status-idle">
+            <span class="status-dot"></span>
+            <span id="status-text">Idle</span>
+          </div>
+          <div id="status-details" class="status-details">System ready</div>
+        </div>
+      </div>
+
+      <!-- AGENT ACTIVITY & TOOL TIMELINE -->
+      <div class="card activity-card">
+        <div class="card-header space-between">
+          <div class="card-title">
+            <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd"
+                d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
+                clip-rule="evenodd" />
+            </svg>
+            Tool timeline
+          </div>
+          <button type="button" id="toggle-raw-trace" class="btn-toggle">View Raw</button>
+        </div>
+        <div id="timeline-view" class="timeline-container">
+          <div class="timeline-empty">No tool executions recorded yet.</div>
+        </div>
+        <pre id="trace" class="console-pre hidden">No tool calls yet.</pre>
+      </div>
+
+      <!-- TOOL OBSERVATIONS & SYSTEM EVENTS -->
+      <div class="card observations-card">
+        <div class="card-header space-between">
+          <div class="card-title">
+            <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+              <path fill-rule="evenodd"
+                d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+                clip-rule="evenodd" />
+            </svg>
+            Observations
+          </div>
+          <button type="button" id="toggle-raw-obs" class="btn-toggle">View Raw</button>
+        </div>
+        <div id="obs-formatted" class="obs-formatted-container">
+          <div class="obs-empty">No observations recorded yet.</div>
+        </div>
+        <pre id="observations" class="console-pre hidden">No observations yet.</pre>
+      </div>
+    </aside>
+  </main>
+
+  <!-- FOOTER BAR -->
+  <footer class="console-footer">
+    <div class="footer-note">
+      <span class="security-tag">🔒 SECURITY</span>
+      <span>Chat memory clears on New Chat or server restart. Don't paste API keys here.</span>
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+
+</html>
