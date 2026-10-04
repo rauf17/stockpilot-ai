@@ -12,6 +12,22 @@ class SessionState:
     pending_clarification: str | None = None
     messages: list = field(default_factory=list)
 
+NUMBER_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
+    "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20,
+    "twenty five": 25, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60,
+    "seventy": 70, "eighty": 80, "ninety": 90, "hundred": 100
+}
+
+def parse_number_words(text: str) -> str:
+    """Replace word numbers with digits for quantity extraction."""
+    t_lower = text.lower()
+    for word, val in sorted(NUMBER_WORDS.items(), key=lambda x: -len(x[0])):
+        t_lower = re.sub(rf'\b{word}\b', str(val), t_lower)
+    return t_lower
+
 class Memory:
     def __init__(self):
         self.sessions: OrderedDict[str, SessionState] = OrderedDict()
@@ -31,52 +47,65 @@ class Memory:
         user_task: str
     ) -> SessionState:
         state = self.get_state(session)
-        task_clean = user_task.strip()
+        raw_task = user_task.strip()
+        task_norm = parse_number_words(raw_task)
 
-        # Check for explicit intent change (e.g. "Actually, what is the current inventory?")
-        is_intent_change = any(phrase in task_clean.lower() for phrase in ["actually", "instead", "never mind", "what is", "check inventory", "show stock", "report inventory"])
-
-        # Determine if task_clean is a short clarification answer to a pending question
-        is_short_clarification = (
-            state.pending_clarification is not None
-            and not is_intent_change
-            and (
-                task_clean.isdigit()
-                or bool(re.match(r'^(SKU-\d+|make it \d+ units?|\d+ units?)$', task_clean, re.IGNORECASE))
-                or len(task_clean.split()) <= 4
-            )
-        )
-
-        if is_intent_change or not state.active_goal or not is_short_clarification:
-            if not is_short_clarification or is_intent_change:
-                state.active_goal = user_task
-                state.pending_clarification = None
-                state.extracted_facts.clear()
-
-        # Extract SKU facts
-        sku_match = re.search(r'\b(SKU-\d+)\b', user_task, re.IGNORECASE)
+        # 1. Detect explicit SKU patterns (e.g. SKU-102, SKU 102, sku 102, item 102)
+        extracted_sku = None
+        sku_match = re.search(r'\b(?:SKU|item)[-\s]?(\d+)\b', task_norm, re.IGNORECASE)
         if sku_match:
-            state.extracted_facts["sku"] = sku_match.group(1).upper()
+            extracted_sku = f"SKU-{sku_match.group(1)}"
+        elif state.pending_clarification == "sku" or (state.active_goal and "sku" not in state.extracted_facts):
+            num_only_match = re.search(r'^\s*(\d{3,4})\s*$', task_norm)
+            if num_only_match:
+                extracted_sku = f"SKU-{num_only_match.group(1)}"
 
-        # Mask SKU patterns from user task text to avoid extracting the SKU number as a quantity
-        task_masked = re.sub(r'\bSKU-\d+\b', '', user_task, flags=re.IGNORECASE)
+        # 2. Extract Quantity patterns
+        # Mask SKU tokens to prevent SKU numbers from becoming quantities
+        task_masked = re.sub(r'\b(?:SKU|item)[-\s]?\d+\b', '', task_norm, flags=re.IGNORECASE)
+        if extracted_sku:
+            sku_num = extracted_sku.split("-")[-1]
+            task_masked = re.sub(rf'\b{sku_num}\b', '', task_masked)
 
-        # Extract quantity facts strictly
-        explicit_qty_match = re.search(r'\b(?:quantity|qty)\s*:?\s*(\d+)\b', task_masked, re.IGNORECASE)
-        unit_qty_match = re.search(r'\b(\d+)\s*(?:units?|pcs?|pieces?|keyboards?|items?)\b', task_masked, re.IGNORECASE)
-        
-        parsed_qty = None
-        if explicit_qty_match:
-            parsed_qty = int(explicit_qty_match.group(1))
-        elif unit_qty_match:
-            parsed_qty = int(unit_qty_match.group(1))
-        elif (state.pending_clarification == "quantity" or is_short_clarification):
+        extracted_qty = None
+        explicit_qty = re.search(r'\b(?:quantity|qty|count|order|make\s+it)\s*:?\s*(\d+)\b', task_masked, re.IGNORECASE)
+        unit_qty = re.search(r'\b(\d+)\s*(?:units?|pcs?|pieces?|keyboards?|items?|headphones?)\b', task_masked, re.IGNORECASE)
+        standalone_qty = re.search(r'^\s*(?:actually\s+|make\s+it\s+|want\s+)?(\d+)(?:\s+units?)?\s*$', task_masked, re.IGNORECASE)
+
+        if explicit_qty:
+            extracted_qty = int(explicit_qty.group(1))
+        elif unit_qty:
+            extracted_qty = int(unit_qty.group(1))
+        elif standalone_qty:
+            extracted_qty = int(standalone_qty.group(1))
+        elif state.pending_clarification == "quantity":
             digit_match = re.search(r'\b(\d+)\b', task_masked)
             if digit_match:
-                parsed_qty = int(digit_match.group(1))
+                extracted_qty = int(digit_match.group(1))
 
-        if parsed_qty is not None:
-            state.extracted_facts["quantity"] = parsed_qty
+        # 3. Classify if turn is a Parameter Clarification vs a New Goal / Intent Change
+        is_parameter_clarification = False
+        if state.active_goal:
+            if extracted_sku is not None or extracted_qty is not None or state.pending_clarification is not None:
+                intent_keywords = ["show", "check", "view", "calculate", "report", "what is", "what are"]
+                if not any(k in raw_task.lower() for k in intent_keywords):
+                    is_parameter_clarification = True
+
+        if is_parameter_clarification:
+            # Preserve active_goal, update facts
+            if extracted_sku:
+                state.extracted_facts["sku"] = extracted_sku
+            if extracted_qty:
+                state.extracted_facts["quantity"] = extracted_qty
+        else:
+            # New goal or initial turn: reset facts and set active_goal
+            state.active_goal = raw_task
+            state.extracted_facts.clear()
+            state.pending_clarification = None
+            if extracted_sku:
+                state.extracted_facts["sku"] = extracted_sku
+            if extracted_qty:
+                state.extracted_facts["quantity"] = extracted_qty
 
         return state
 

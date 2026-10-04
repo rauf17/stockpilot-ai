@@ -25,7 +25,7 @@ An autonomous, bounded single-agent application built for **Inbox Triage & Inven
 | **6. State** | Explicit `SessionState` (`active_goal`, `extracted_facts`, `pending_clarification`) & `AgentState` (`goal`, `step_count`, `max_steps`, `completed_actions`, `observations`, `errors`, `status`, `stop_reason`). |
 | **7. Autonomy Boundary** | **Allowed**: Read inventory, calculate target stock costs, draft DRAFT sandbox POs. **Blocked**: Issuing real POs, paying vendor invoices, deleting records, or sending supplier communications. |
 | **8. Primary Risks** | Prompt injection in external notes; hallucinated tool choices; missing quantity ambiguity; malformed model JSON; event-loop thread blocking. |
-| **9. Evaluation Criteria** | 100% pass rate on unit test suite (40/40 tests) and public Reliability Arena benchmarks (Categories A-F), structured schema validity, strict injection defense, and bounded resource limits. |
+| **9. Evaluation Criteria** | 100% pass rate on unit test suite (52/52 tests) and public Reliability Arena benchmarks (Categories A-F), structured schema validity, strict injection defense, and bounded resource limits. |
 
 ---
 
@@ -268,11 +268,10 @@ Configure these in `.env` or system environment:
 
 | Variable | Description | Default | Required For |
 |---|---|---|---|
-| `MODEL_PROVIDER` | Active LLM provider (`google`, `groq`, `openai`) | `google` | All live model calls |
-| `MODEL_NAME` | Active LLM model name (`gemini-2.5-flash`, `openai/gpt-oss-20b`, `gpt-4o-mini`) | `gemini-2.5-flash` | All live model calls |
+| `MODEL_PROVIDER` | Active LLM provider (`google`, `groq`) | `google` | All live model calls |
+| `MODEL_NAME` | Active LLM model name (`gemini-2.5-flash`, `openai/gpt-oss-20b`) | `gemini-2.5-flash` | All live model calls |
 | `GEMINI_API_KEY` | Google AI Studio Free Tier API key | `""` | Provider `google` |
 | `GROQ_API_KEY` | Groq Cloud Free Plan API key | `""` | Provider `groq` |
-| `OPENAI_API_KEY` | OpenAI API key | `""` | Provider `openai` |
 | `MAX_STEPS` | Maximum iteration steps per turn ($1 \le n \le 6$) | `6` | Bounded agent execution |
 | `MAX_TOOL_RETRIES` | Repair retries per step ($0 \le n \le 2$) | `2` | JSON decision repair |
 | `MAX_OUTPUT_TOKENS` | Token ceiling per LLM call | `512` | Token & cost control |
@@ -287,7 +286,7 @@ Configure these in `.env` or system environment:
 | `/` | `GET` | HTML Web Interface |
 | `/health` | `GET` | Health Check (`{"status": "ok", ...}`) |
 | `/arena/manifest` | `GET` | Agent Arena JSON Manifest |
-| `/models` | `GET` | Enabled Models List (`['gemini-2.5-flash', 'openai/gpt-oss-20b', 'gpt-4o-mini', 'gemini-1.5-pro', 'unconfigured']`) |
+| `/models` | `GET` | Enabled Models List (`['gemini-2.5-flash', 'openai/gpt-oss-20b']`) |
 | `/arena/run` | `POST` | Single-turn Arena execution (`ArenaRequest` -> `ArenaResponse`) |
 | `/chat` | `POST` | Multi-turn chat execution with session state (`ChatRequest` -> `ArenaResponse`) |
 | `/chat/{session_id}` | `DELETE` | Purge session memory for `session_id` |

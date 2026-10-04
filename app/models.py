@@ -30,6 +30,7 @@ class ArenaRequest(Contract):
     task: str = Field(min_length=1, max_length=10000)
     external_context: list[ExternalContext] = Field(default_factory=list, max_length=20)
     arena_config: ArenaConfig = Field(default_factory=ArenaConfig)
+    model: str | None = Field(default=None, max_length=120)
 
     @field_validator('task')
     @classmethod

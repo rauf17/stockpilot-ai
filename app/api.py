@@ -25,11 +25,14 @@ def manifest():
 
 @router.get('/models')
 def models():
-    return {'models': ['gemini-2.5-flash', 'openai/gpt-oss-20b', 'gpt-4o-mini', 'gemini-1.5-pro', 'unconfigured']}
+    return {'models': ['gemini-2.5-flash', 'openai/gpt-oss-20b']}
 
 @router.post('/arena/run', response_model=ArenaResponse)
 async def arena_run(payload: ArenaRequest):
-    return await execute(payload, model=settings.model_name or 'unconfigured')
+    model_to_use = payload.model or settings.model_name or 'gemini-2.5-flash'
+    if model_to_use not in models()['models']:
+        raise HTTPException(400, f"Model '{model_to_use}' is not supported. Supported models: {models()['models']}")
+    return await execute(payload, model=model_to_use)
 
 @router.post('/chat', response_model=ArenaResponse)
 async def chat(payload: ChatRequest, request: Request):

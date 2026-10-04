@@ -31,16 +31,13 @@ import asyncio
 
 SUPPORTED_MODELS = {
     "gemini-2.5-flash": "google",
-    "gemini-1.5-pro": "google",
     "openai/gpt-oss-20b": "groq",
-    "gpt-4o-mini": "openai",
 }
 
 ALLOWED_PROVIDER_ALIASES = {
     "google": ["google", "gemini"],
     "gemini": ["google", "gemini"],
     "groq": ["groq"],
-    "openai": ["openai", "gpt"]
 }
 
 async def _call_llm(messages: list, model_name: str, llm: Any = None) -> tuple[str, Metrics]:
@@ -66,10 +63,8 @@ async def _call_llm(messages: list, model_name: str, llm: Any = None) -> tuple[s
         import os
         gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or settings.gemini_api_key
         groq_key = os.getenv("GROQ_API_KEY") or settings.groq_api_key
-        openai_key = os.getenv("OPENAI_API_KEY") or settings.openai_api_key
 
         target_model = model_name if (model_name and model_name != "unconfigured") else settings.model_name
-        provider_setting = settings.model_provider.lower() if settings.model_provider else "unconfigured"
 
         if not target_model or target_model == "unconfigured":
             raise LLMProviderError("Model name is unconfigured.")
@@ -78,12 +73,6 @@ async def _call_llm(messages: list, model_name: str, llm: Any = None) -> tuple[s
             raise LLMProviderError(f"Unknown or unsupported model '{target_model}'. Supported models: {list(SUPPORTED_MODELS.keys())}")
 
         required_provider = SUPPORTED_MODELS[target_model]
-        allowed_aliases = ALLOWED_PROVIDER_ALIASES.get(required_provider, [required_provider])
-
-        if provider_setting not in allowed_aliases:
-            raise LLMProviderError(
-                f"Model '{target_model}' requires provider '{required_provider}', but current model_provider setting is '{settings.model_provider}'."
-            )
 
         # 1. Google Gemini Provider (Free Tier)
         if required_provider in ["google", "gemini"]:
@@ -140,81 +129,13 @@ async def _call_llm(messages: list, model_name: str, llm: Any = None) -> tuple[s
                 log.error("Groq provider execution failure: %s", e)
                 raise LLMProviderError(f"Groq API provider error: {str(e)}") from e
 
-        # 3. OpenAI Provider
-        elif required_provider == "openai":
-            if not openai_key:
-                raise LLMProviderError("OpenAI API Key is not configured in environment (OPENAI_API_KEY).")
-            try:
-                from langchain_openai import ChatOpenAI
-                llm_inst = ChatOpenAI(
-                    model=target_model,
-                    api_key=openai_key,
-                    temperature=0.0,
-                    max_tokens=settings.max_output_tokens
-                )
-                res = llm_inst.invoke(messages)
-                if hasattr(res, "response_metadata") and "token_usage" in res.response_metadata:
-                    usage = res.response_metadata["token_usage"]
-                    metrics.input_tokens = usage.get("prompt_tokens")
-                    metrics.output_tokens = usage.get("completion_tokens")
-                    in_tok = metrics.input_tokens or 0
-                    out_tok = metrics.output_tokens or 0
-                    metrics.estimated_cost_usd = round((in_tok * 0.00000015) + (out_tok * 0.0000006), 6)
-                return str(res.content), metrics
-            except Exception as e:
-                log.error("OpenAI provider execution failure: %s", e)
-                raise LLMProviderError(f"OpenAI API provider error: {str(e)}") from e
-
-        raise LLMProviderError(f"Model provider '{settings.model_provider}' / model '{target_model}' routing failed.")
+        raise LLMProviderError(f"Model '{target_model}' provider routing failed.")
 
     return await asyncio.to_thread(_sync_call)
 
 
-def is_consequential_request(user_goal: str) -> bool:
-    """Classify whether a user request is a consequential external action requiring human approval."""
-    if not user_goal:
-        return False
-
-    goal = user_goal.lower().strip()
-
-    # 1. Explicit draft override: Draft actions (draft POs, sandbox PO creation) are in-scope and NOT consequential
-    if re.search(r"\bdraft\b", goal):
-        return False
-
-    # 2. Negated / informational override: "approve nothing", "don't pay", "do not execute", "just check", etc.
-    if re.search(r"\b(approve\s+nothing|do\s+not|don'?t|never|just\s+check|only\s+report|just\s+report|view\s+only)\b", goal):
-        return False
-
-    # 3. Consequential action patterns (submitting real POs, payments, vendor emails, wiping records, fund transfers):
-    # a) Submitting / executing / issuing real POs or orders (e.g., "submit PO-501", "execute the purchase", "actually submit it now", "send PO", "issue PO")
-    po_submission_pattern = r"\b(submit|issue|execute|send|place|finalize)\b.*\b(po|purchase(\s+order)?|order|invoice)\b|\b(submit|issue|execute|send|finalize)\s+it\b"
-
-    # b) Financial payments & transfers (e.g., "transfer the funds", "pay invoice", "pay vendor", "wire money")
-    financial_pattern = r"\b(transfer|pay|wire)\b.*\b(funds|payment|invoice|money|vendor|supplier)\b"
-
-    # c) External vendor emails/communications (e.g., "email the vendor", "contact supplier", "send email")
-    communication_pattern = r"\b(email|mail|message|contact)\b.*\b(vendor|supplier|rep)\b|\bsend\s+email\b"
-
-    # d) Destructive database/record operations (e.g., "wipe all records", "delete database", "erase data")
-    destructive_pattern = r"\b(wipe|delete|erase|drop|purge|clear)\b.*\b(records|data|database|history|pos|all)\b"
-
-    # e) Approval of real transactions (e.g., "approve PO", "approve payment", "approve order")
-    approval_pattern = r"\bapprove\b.*\b(po|purchase\s+order|invoice|payment|order)\b"
-
-    if (
-        re.search(po_submission_pattern, goal)
-        or re.search(financial_pattern, goal)
-        or re.search(communication_pattern, goal)
-        or re.search(destructive_pattern, goal)
-        or re.search(approval_pattern, goal)
-    ):
-        return True
-
-    return False
-
-
 def parse_and_validate_decision(raw_text: str, trusted_user_goal: str = "") -> tuple[AgentDecision | None, str | None]:
-    """Parse JSON and perform schema + semantic + deterministic policy validation. Returns (decision, error_message)."""
+    """Parse JSON and perform schema + semantic + capability policy validation. Returns (decision, error_message)."""
     cleaned = raw_text.strip()
     if cleaned.startswith("```"):
         cleaned = re.sub(r"^```[a-zA-Z]*\n?", "", cleaned)
@@ -230,43 +151,23 @@ def parse_and_validate_decision(raw_text: str, trusted_user_goal: str = "") -> t
     except ValidationError as val_err:
         return None, f"Schema validation error: {str(val_err)}"
 
-    # 1. Structural/Semantic Validation
+    # Structural & Capability Boundary Validation
     if decision.status == "continue":
         if not decision.action:
             return None, "Semantic error: 'action' cannot be empty when status is 'continue'."
-        allowed_tools = ["check_inventory", "draft_purchase_order", "issue_purchase_order", "calculate_reorder_cost"]
-        if decision.action not in allowed_tools:
-            return None, f"Semantic error: Unknown action '{decision.action}'."
-
+        allowed_tools = ["check_inventory", "draft_purchase_order", "calculate_reorder_cost"]
+        
         if decision.action == "issue_purchase_order":
-            return None, "Policy validation error: Action 'issue_purchase_order' is a blocked consequential action requiring human approval."
+            return None, "Policy validation error: Action 'issue_purchase_order' is a blocked consequential action requiring human manager approval."
+
+        if decision.action not in allowed_tools:
+            return None, f"Capability policy error: Action '{decision.action}' is not an authorized tool capability."
 
         # Tool Argument Schema Validation
         from app.tools import validate_tool_arguments
         _, schema_err = validate_tool_arguments(decision.action, decision.arguments)
         if schema_err:
             return None, f"Tool argument schema error: {schema_err}"
-
-    # 2. Deterministic Safety Policy Validation (Trust Hierarchy Enforcement)
-    if trusted_user_goal:
-        if is_consequential_request(trusted_user_goal) and decision.status == "completed":
-            return None, "Policy validation error: Consequential action cannot be reported as completed without human manager authorization."
-
-        # Informational / Inquiry user goal detection
-        info_keywords = [
-            "check inventory", "check stock", "view inventory", "inventory report",
-            "what are we running low on", "show me what is nearly out", "check current inventory",
-            "what is the stock", "check low stock", "stock levels", "inventory lookup"
-        ]
-        write_keywords = ["draft", "order", "buy", "reorder", "purchase order", "restock", "create po"]
-
-        is_purely_informational = (
-            any(w in trusted_user_goal.lower() for w in info_keywords)
-            and not any(w in trusted_user_goal.lower() for w in write_keywords)
-        )
-
-        if is_purely_informational and decision.status == "continue" and decision.action in ["draft_purchase_order", "calculate_reorder_cost"]:
-            return None, f"Policy validation error: Action '{decision.action}' is not authorized by informational user goal '{trusted_user_goal}'."
 
     return decision, None
 
@@ -284,20 +185,6 @@ async def run_agent(
     active_goal = getattr(session_state, "active_goal", "") or request.task
     extracted_facts = getattr(session_state, "extracted_facts", {})
     pending_clarification = getattr(session_state, "pending_clarification", None)
-
-    # Autonomy boundary check for consequential operations up front
-    if is_consequential_request(active_goal):
-        return ArenaResponse(
-            request_id=request.request_id,
-            status="blocked",
-            final_response="Requested action is a consequential operation (sending payments/POs or deleting records) requiring human manager approval.",
-            steps=1,
-            stop_reason="action_blocked",
-            tool_calls=[],
-            errors=[],
-            events=[{"step": 1, "event": "agent_stop", "reason": "action_blocked"}],
-            metrics=Metrics(model_calls=0, latency_ms=(perf_counter() - started_time) * 1000)
-        )
 
     state = AgentState(
         goal=active_goal,
@@ -327,17 +214,38 @@ async def run_agent(
         current_step = state.step_count
         events.append({"step": current_step, "event": "step_start"})
 
+        # Check model calls global ceiling (max 30 model calls per request)
+        if total_model_calls >= 30:
+            stop_reason = "max_model_calls_exceeded"
+            return ArenaResponse(
+                request_id=request.request_id,
+                status="budget_exceeded",
+                final_response="Execution stopped: Maximum model calls ceiling (30) reached.",
+                steps=current_step,
+                stop_reason=stop_reason,
+                tool_calls=tool_calls,
+                errors=errors,
+                events=events,
+                metrics=Metrics(
+                    model_calls=total_model_calls,
+                    input_tokens=total_input_tokens,
+                    output_tokens=total_output_tokens,
+                    estimated_cost_usd=total_cost_usd,
+                    latency_ms=(perf_counter() - started_time) * 1000
+                )
+            )
+
         # Check for invalid_agent_decision fault injection on step 1
         fault_type = fault_config.type if hasattr(fault_config, 'type') else (fault_config.get('type') if isinstance(fault_config, dict) else 'none')
-
         inject_invalid_decision = (fault_type == "invalid_agent_decision" and not fault_triggered[0])
 
-        # 1. Assemble prompt with active goal and multi-turn session state
+        # 1. Assemble prompt with active goal, accumulated observations feedback, and session state
         state_summary = {
             "step": current_step,
             "extracted_facts": state.extracted_facts,
             "completed_actions": state.completed_actions,
-            "last_tool_result": state.observations[-1] if state.observations else None
+            "last_tool_result": state.observations[-1] if state.observations else None,
+            "accumulated_observations": state.observations[-6:]
         }
 
         messages = assemble_prompt_messages(
